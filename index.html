@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Royal Salmon | Delivery & Takeaway</title>
+  <link rel="stylesheet" href="STYLEGUIDE.css">
+  <style>
+    /* Demo Wrapper */
+    body {
+      background-color: #0c1218;
+      display: flex;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 0;
+      margin: 0;
+    }
+    .mobile-container {
+      width: 100%;
+      max-width: 440px;
+      background-color: var(--bg-surface);
+      min-height: 100vh;
+      position: relative;
+      padding-bottom: 80px;
+    }
+    .hero-banner-slider {
+      padding: 12px 16px 4px;
+    }
+    .hero-banner-card {
+      background: linear-gradient(135deg, #102632 0%, #0d1a22 100%);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      color: #fff;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .hero-banner-card::after {
+      content: '';
+      position: absolute;
+      right: -20px;
+      bottom: -20px;
+      width: 130px;
+      height: 130px;
+      background: radial-gradient(circle, rgba(47,187,186,0.35) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-tag {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--color-primary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .hero-title {
+      font-size: 20px;
+      font-weight: 800;
+      line-height: 1.2;
+    }
+    .hero-subtitle {
+      font-size: 13px;
+      color: #9cb2c0;
+    }
+    /* Drawer Navigation */
+    .drawer-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      display: none;
+      transition: opacity 0.25s ease;
+    }
+    .drawer-overlay.active {
+      display: block;
+    }
+    .drawer-content {
+      position: fixed;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      width: 320px;
+      max-width: 85%;
+      background: var(--bg-surface);
+      z-index: 101;
+      padding: 24px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      box-shadow: var(--shadow-lg);
+      transform: translateX(-100%);
+      transition: transform 0.3s cubic-bezier(0.2, 0.9, 0.3, 1);
+    }
+    .drawer-content.active {
+      transform: translateX(0);
+    }
+    .drawer-title {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--color-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .drawer-link {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      border-radius: var(--radius-md);
+      color: var(--text-main);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 15px;
+      background: var(--bg-muted);
+      transition: background 0.2s;
+    }
+    .drawer-link:hover {
+      background: var(--color-primary-subtle);
+      color: var(--color-primary);
+    }
+    .btn-login {
+      background: var(--color-primary);
+      color: #fff;
+      border: none;
+      padding: 14px;
+      border-radius: var(--radius-md);
+      font-weight: 700;
+      font-size: 15px;
+      cursor: pointer;
+    }
+    /* Hidden utility */
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="mobile-container" id="app">
+
+    <!-- 1. Top Announcement Bar -->
+    <div class="announcement-banner" id="announcement">
+      <div class="announcement-banner__text">
+        <span>⚠️</span>
+        <span id="announcement-text">Не забудьте заказать соевый соус, имбирь, васаби и палочки! Они не входят в состав сетов.</span>
+      </div>
+      <button class="announcement-banner__close" onclick="closeAnnouncement()" aria-label="Close announcement">✕</button>
+    </div>
+
+    <!-- 2. Sticky Header -->
+    <header class="header">
+      <div class="header__left">
+        <button class="header__menu-btn" onclick="toggleDrawer()" aria-label="Menu">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+        <a href="#" class="header__logo">
+          <span>👑</span>
+          <span>Royal Salmon</span>
+        </a>
+      </div>
+
+      <div class="header__actions">
+        <!-- 3 Languages Switcher -->
+        <div class="lang-selector">
+          <button class="lang-btn active" onclick="setLanguage('ru')">RU</button>
+          <button class="lang-btn" onclick="setLanguage('ka')">GE</button>
+          <button class="lang-btn" onclick="setLanguage('en')">EN</button>
+        </div>
+
+        <!-- Cart Button -->
+        <button class="header__cart-btn" onclick="openCart()">
+          <span>🛒</span>
+          <span id="cart-total-header">0 GEL</span>
+          <span class="header__cart-badge" id="cart-count">0</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- 3. Delivery / Pickup Tabs -->
+    <div class="delivery-tabs">
+      <button class="delivery-tab active" id="tab-delivery" onclick="setDeliveryMode('delivery')">
+        <span id="txt-delivery">Доставка</span>
+      </button>
+      <button class="delivery-tab" id="tab-pickup" onclick="setDeliveryMode('pickup')">
+        <span id="txt-pickup">Самовывоз</span>
+      </button>
+    </div>
+
+    <!-- 4. Location Selector -->
+    <div class="location-selector" onclick="alert('Выбор адреса / филиала на карте')">
+      <div class="location-selector__city">
+        <span>📍</span>
+        <span id="location-text">Батуми, ул. Руставели 15</span>
+      </div>
+      <button class="location-selector__btn" id="btn-change-address">Изменить</button>
+    </div>
+
+    <!-- 5. Promo Banner -->
+    <div class="hero-banner-slider">
+      <div class="hero-banner-card">
+        <span class="hero-tag" id="banner-tag">Специальное предложение</span>
+        <div class="hero-title" id="banner-title">Роял Сет со скидкой 20%</div>
+        <div class="hero-subtitle" id="banner-subtitle">При заказе от 60 GEL напиток в подарок</div>
+      </div>
+    </div>
+
+    <!-- 6. Sticky Category Bar -->
+    <nav class="category-nav" id="categoryNav">
+      <button class="category-chip active" onclick="filterCategory('Appetizers')">Закуски</button>
+      <button class="category-chip" onclick="filterCategory('Cold')">Холодные роллы</button>
+      <button class="category-chip" onclick="filterCategory('Baked')">Запеченные</button>
+      <button class="category-chip" onclick="filterCategory('Tempura')">Темпура</button>
+      <button class="category-chip" onclick="filterCategory('Sets')">Наборы</button>
+      <button class="category-chip" onclick="filterCategory('Sauces')">Соусы</button>
+    </nav>
+
+    <!-- 7. Filter Tags -->
+    <div class="filter-tags">
+      <button class="filter-tag active">Все</button>
+      <button class="filter-tag">🍤 С креветками</button>
+      <button class="filter-tag">🧀 Сырные</button>
+      <button class="filter-tag">🌶️ Острое</button>
+      <button class="filter-tag">🍇 Фруктовые</button>
+    </div>
+
+    <!-- 8. Product Catalog Grid -->
+    <section class="catalog-section">
+      <h2 class="catalog-section__title" id="section-title">Закуски / Appetizers</h2>
+      <div class="product-grid" id="productGrid">
+        <!-- Products populated from JSON API -->
+      </div>
+    </section>
+
+    <!-- 9. Product Detail Modal (Bottom Sheet) -->
+    <div class="modal-overlay hidden" id="productModal" onclick="closeModalOnOverlay(event)">
+      <div class="modal-sheet" id="modalSheet">
+        <div class="modal-sheet__header">
+          <img src="" alt="" class="modal-sheet__img" id="modalImg">
+          <button class="modal-sheet__close" onclick="closeProductModal()">✕</button>
+          <div class="modal-sheet__weight-tag" id="modalWeight">±220 г.</div>
+        </div>
+
+        <div class="modal-sheet__content">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 6px;">
+            <div style="display:flex; align-items:center; gap: 4px; font-size: 13px; font-weight:800; color: #1B242C;">
+              <span>⭐</span> <span id="modalRating">9.9</span> <span style="color:#7E8B99; font-weight:500;">(149 оценок)</span>
+            </div>
+            <span class="product-card__badge" style="position:static;" id="modalBadge">NEW</span>
+          </div>
+
+          <h1 class="modal-sheet__title" id="modalTitle">Breaded shrimp</h1>
+          <p class="modal-sheet__desc" id="modalDesc">Crispy golden breaded tiger shrimp served with dipping sauce.</p>
+
+          <!-- Nutrition Accordion -->
+          <div class="nutrition-accordion">
+            <div class="nutrition-accordion__header" onclick="toggleNutrition()">
+              <span id="txt-kbju">КБЖУ и Состав</span>
+              <span id="accordion-arrow">▼</span>
+            </div>
+            <div id="nutrition-body" style="display: block;">
+              <div class="nutrition-grid">
+                <div class="nutrition-grid__item">
+                  <span class="nutrition-grid__val" id="kbju-cal">210</span>
+                  <span class="nutrition-grid__lbl">Ккал</span>
+                </div>
+                <div class="nutrition-grid__item">
+                  <span class="nutrition-grid__val" id="kbju-prot">18 г</span>
+                  <span class="nutrition-grid__lbl">Белки</span>
+                </div>
+                <div class="nutrition-grid__item">
+                  <span class="nutrition-grid__val" id="kbju-fats">8.5 г</span>
+                  <span class="nutrition-grid__lbl">Жиры</span>
+                </div>
+                <div class="nutrition-grid__item">
+                  <span class="nutrition-grid__val" id="kbju-carbs">14 г</span>
+                  <span class="nutrition-grid__lbl">Углеводы</span>
+                </div>
+              </div>
+              <div class="nutrition-ingredients" id="modalIngredients">
+                Тигровая креветка, панировочные сухари панко, мука, специи. Аллергены: морепродукты, глютен.
+              </div>
+            </div>
+          </div>
+
+          <!-- Modifiers Group -->
+          <div class="modifier-group" id="modifierGroup">
+            <div class="modifier-group__header">
+              <span class="modifier-group__title" id="mod-group-title">Добавь 1 соус бесплатно</span>
+              <span class="modifier-group__rule-badge" id="mod-badge">0 из 1</span>
+            </div>
+            <div class="modifier-grid" id="modifierGrid">
+              <!-- Modifiers options -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Sticky Modal Footer -->
+        <div class="modal-sheet__footer">
+          <button class="btn-add-to-cart" onclick="confirmAddToCart()">
+            <span id="txt-btn-add">В корзину</span>
+            <span id="modal-final-price">60 GEL</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 10. Drawer Menu (Slide-out) -->
+    <div class="drawer-overlay" id="drawerOverlay" onclick="toggleDrawer()"></div>
+    <div class="drawer-content" id="drawerContent">
+      <div class="drawer-title">
+        <span>👑</span>
+        <span>Royal Salmon</span>
+      </div>
+      <button class="btn-login" id="txt-btn-login">Войти в кабинет</button>
+      <div style="font-size: 13px; color: var(--text-muted);">
+        <b style="color:var(--text-main);">Батуми</b> • Ежедневно 11:00 - 23:00
+      </div>
+      <hr style="border:0; border-top:1px solid var(--border-subtle);">
+      <a href="#" class="drawer-link">🎁 <span id="nav-bonuses">Бонусная система</span></a>
+      <a href="#" class="drawer-link">🔥 <span id="nav-promos">Наши акции</span></a>
+      <a href="#" class="drawer-link">🚚 <span id="nav-delivery">Условия доставки</span></a>
+      <a href="#" class="drawer-link">❓ <span id="nav-faq">Часто задаваемые вопросы</span></a>
+      <a href="#" class="drawer-link">📞 <span id="nav-contacts">Контакты и Служба заботы</span></a>
+    </div>
+
+    <!-- 11. Sticky Bottom Action Bar -->
+    <div class="sticky-bottom-bar" id="stickyBottomBar">
+      <button class="sticky-bottom-btn" onclick="openCart()">
+        <span id="bottom-cart-label">Оформить заказ</span>
+        <span id="bottom-cart-sum">0 GEL ➔</span>
+      </button>
+    </div>
+
+  </div>
+
+  <!-- Client-side Logic & API Rendering -->
+  <script>
+    // i18n Translations Dictionary
+    const i18n = {
+      ru: {
+        announcement: "Не забудьте заказать соевый соус, имбирь, васаби и палочки! Они не входят в состав сетов.",
+        delivery: "Доставка",
+        pickup: "Самовывоз",
+        change: "Изменить",
+        bannerTag: "Специальное предложение",
+        bannerTitle: "Роял Сет со скидкой 20%",
+        bannerSubtitle: "При заказе от 60 GEL напиток в подарок",
+        categoryAppetizers: "Закуски",
+        kbju: "КБЖУ и Состав",
+        chooseSauce: "Добавь 1 соус бесплатно",
+        ruleBadge: "{x} из {max}",
+        addToCart: "В корзину",
+        fromPrice: "от {p} GEL",
+        checkout: "Оформить заказ",
+        login: "Войти в кабинет",
+        bonuses: "Бонусная система",
+        promos: "Наши акции",
+        delivTerms: "Условия доставки",
+        faq: "Часто задаваемые вопросы",
+        contacts: "Контакты и Служба заботы"
+      },
+      ka: {
+        announcement: "არ დაგავიწყდეთ სოიოს სოუსის, ჯანჯაფილის, ვასაბისა და ჩხირების შეკვეთა!",
+        delivery: "მიტანა",
+        pickup: "წაღება",
+        change: "შეცვლა",
+        bannerTag: "სპეციალური შეთავაზება",
+        bannerTitle: "როიალ სეტი 20%-იანი ფასდაკლებით",
+        bannerSubtitle: "60 GEL-ზე მეტი შეკვეთისას სასმელი საჩუქრად",
+        categoryAppetizers: "აპეტაიზერები",
+        kbju: "კვებითი ღირებულება და შემადგენლობა",
+        chooseSauce: "დაამატეთ 1 სოუსი უფასოდ",
+        ruleBadge: "{x}-დან {max}",
+        addToCart: "კალათაში დამატება",
+        fromPrice: "-დან {p} GEL",
+        checkout: "შეკვეთის გაფორმება",
+        login: "კაბინეტში შესვლა",
+        bonuses: "ბონუს სისტემა",
+        promos: "აქციები",
+        delivTerms: "მიტანის პირობები",
+        faq: "ხშირად დასმული კითხვები",
+        contacts: "კონტაქტი და მხარდაჭერა"
+      },
+      en: {
+        announcement: "Don't forget to order soy sauce, ginger, wasabi and chopsticks! Not included in sets.",
+        delivery: "Delivery",
+        pickup: "Takeaway",
+        change: "Change",
+        bannerTag: "Special Offer",
+        bannerTitle: "Royal Set with 20% OFF",
+        bannerSubtitle: "Free drink on orders above 60 GEL",
+        categoryAppetizers: "Appetizers",
+        kbju: "Nutrition & Ingredients",
+        chooseSauce: "Add 1 Free Sauce",
+        ruleBadge: "{x} of {max}",
+        addToCart: "Add to Cart",
+        fromPrice: "from {p} GEL",
+        checkout: "Checkout",
+        login: "Log In",
+        bonuses: "Bonus Program",
+        promos: "Special Offers",
+        delivTerms: "Delivery Terms",
+        faq: "Frequently Asked Questions",
+        contacts: "Contacts & Support"
+      }
+    };
+
+    let currentLang = 'ru';
+    let currentDeliveryMode = 'delivery';
+    let menuData = null;
+    let cart = {};
+    let activeProduct = null;
+    let selectedModifier = null;
+
+    // Default Modifiers for Demo
+    const sampleModifiers = [
+      { id: "mod_spicy", name: { ru: "Соус Спайси", ka: "სპაისი სოუსი", en: "Spicy Sauce" }, price: 0, img: "https://api.restiq.ge/storage/v1/object/public/images/teatro/sauce_spicy.jpg" },
+      { id: "mod_sweet_chili", name: { ru: "Свит Чили", ka: "სვიტ ჩილი", en: "Sweet Chili" }, price: 0, img: "https://api.restiq.ge/storage/v1/object/public/images/teatro/sauce_sweet_chili.jpg" },
+      { id: "mod_unagi", name: { ru: "Соус Унаги", ka: "უნაგი სოუსი", en: "Unagi Sauce" }, price: 0, img: "https://api.restiq.ge/storage/v1/object/public/images/teatro/sauce_unagi.jpg" },
+      { id: "mod_soy", name: { ru: "Соевый соус", ka: "სოიოს სოუსი", en: "Soy Sauce" }, price: 0, img: "https://api.restiq.ge/storage/v1/object/public/images/teatro/sauce_soy.jpg" }
+    ];
+
+    async function loadData() {
+      try {
+        const res = await fetch('data/menu_api_sample.json');
+        const data = await res.json();
+        menuData = data.result.itemCategories[0].items;
+        renderProducts();
+      } catch (e) {
+        console.warn("Fetch failed, falling back to embedded API sample data:", e);
+        // Fallback embedded dataset from menu_api_sample.json
+        menuData = [
+          {
+            "sku": "1994",
+            "name": "Breaded shrimp",
+            "itemId": "1994",
+            "labels": [],
+            "itemSizes": [{
+              "prices": [{ "price": 60 }],
+              "buttonImage": { "src": "https://api.restiq.ge/storage/v1/object/public/images/teatro/HMT2VMXQ88GV.jpg?t=1787952496196" },
+              "portionWeightGrams": 220,
+              "nutritions": [{ "energy": 210, "proteins": 18, "fats": 8.5, "carbs": 14 }]
+            }],
+            "description": "Crispy golden breaded tiger shrimp served with dipping sauce."
+          },
+          {
+            "sku": "1995",
+            "name": "Shrimp in spisy butter",
+            "itemId": "1995",
+            "labels": ["Spicy"],
+            "itemSizes": [{
+              "prices": [{ "price": 60 }],
+              "buttonImage": { "src": "https://api.restiq.ge/storage/v1/object/public/images/teatro/HMT329DV6OVT1.jpg?t=1787952464396" },
+              "portionWeightGrams": 200,
+              "nutritions": [{ "energy": 240, "proteins": 19.5, "fats": 12, "carbs": 2.5 }]
+            }],
+            "description": "Juicy shrimp sauteed in aromatic spicy garlic butter with herbs."
+          },
+          {
+            "sku": "1344",
+            "name": "Wine plate",
+            "itemId": "1344",
+            "labels": [],
+            "itemSizes": [{
+              "prices": [{ "price": 60 }],
+              "buttonImage": { "src": "https://api.restiq.ge/storage/v1/object/public/images/mutsjjc1w6-1782953734778.jfif" },
+              "portionWeightGrams": 320,
+              "nutritions": [{ "energy": 360, "proteins": 16, "fats": 22, "carbs": 15 }]
+            }],
+            "description": "Selected cheeses, cured meats, nuts, olives, and fresh fruit perfect for wine pairing."
+          },
+          {
+            "sku": "1339",
+            "name": "Watermelon",
+            "itemId": "1339",
+            "labels": ["Fresh"],
+            "itemSizes": [{
+              "prices": [{ "price": 40 }],
+              "buttonImage": { "src": "https://api.restiq.ge/storage/v1/object/public/images/of8ss3jouhf-1782953775597.jfif" },
+              "portionWeightGrams": 400,
+              "nutritions": [{ "energy": 30, "proteins": 0.6, "fats": 0.2, "carbs": 7.6 }]
+            }],
+            "description": "Fresh, sweet, chilled sliced seasonal watermelon."
+          },
+          {
+            "sku": "1340",
+            "name": "Melon and watermelon",
+            "itemId": "1340",
+            "labels": ["Fresh"],
+            "itemSizes": [{
+              "prices": [{ "price": 50 }],
+              "buttonImage": { "src": "https://api.restiq.ge/storage/v1/object/public/images/hlyykvfjd4b-1782953788895.jfif" },
+              "portionWeightGrams": 450,
+              "nutritions": [{ "energy": 34, "proteins": 0.7, "fats": 0.2, "carbs": 8 }]
+            }],
+            "description": "Chilled platter of sweet melon and juicy watermelon slices."
+          },
+          {
+            "sku": "909",
+            "name": "European Cheese Plate",
+            "itemId": "909",
+            "labels": ["Popular"],
+            "itemSizes": [{
+              "prices": [{ "price": 70 }],
+              "buttonImage": { "src": "https://api.restiq.ge/storage/v1/object/public/images/teatro/IRYUZBZOZ.jpg?t=1782954453555" },
+              "portionWeightGrams": 280,
+              "nutritions": [{ "energy": 380, "proteins": 22, "fats": 28, "carbs": 9 }]
+            }],
+            "description": "Cheddar, Grana Padano, Gorgonzola, mozzarella, Gouda, pear, honey."
+          },
+          {
+            "sku": "1139",
+            "name": "Olive mix plate",
+            "itemId": "1139",
+            "labels": [],
+            "itemSizes": [{
+              "prices": [{ "price": 45 }],
+              "buttonImage": { "src": "https://api.restiq.ge/storage/v1/object/public/images/dsfbxb8pofu-1782953836921.png" },
+              "portionWeightGrams": 150,
+              "nutritions": [{ "energy": 145, "proteins": 1, "fats": 15, "carbs": 3 }]
+            }],
+            "description": "Green, Red, Black, grilled"
+          },
+          {
+            "sku": "1132",
+            "name": "Nut plate",
+            "itemId": "1132",
+            "labels": [],
+            "itemSizes": [{
+              "prices": [{ "price": 65 }],
+              "buttonImage": { "src": "https://api.restiq.ge/storage/v1/object/public/images/9y5vbq2nof8-1782953912283.jfif" },
+              "portionWeightGrams": 180,
+              "nutritions": [{ "energy": 590, "proteins": 20, "fats": 52, "carbs": 18 }]
+            }],
+            "description": "Cashews, pistachios, hazelnuts, almonds, peanuts."
+          }
+        ];
+        renderProducts();
+      }
+    }
+
+    function renderProducts() {
+      if (!menuData) return;
+      const grid = document.getElementById('productGrid');
+      grid.innerHTML = '';
+
+      menuData.forEach(item => {
+        const size = item.itemSizes[0];
+        const price = size.prices[0].price;
+        const img = size.buttonImage?.src || '';
+        const weight = size.portionWeightGrams ? `±${size.portionWeightGrams} г.` : '1 порция';
+        const inCartCount = cart[item.itemId]?.qty || 0;
+
+        const card = document.createElement('article');
+        card.className = 'product-card';
+        card.onclick = () => openProductModal(item);
+
+        card.innerHTML = `
+          <div class="product-card__thumb">
+            <img src="${img}" alt="${item.name}" class="product-card__image" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1579871494447-9811cf80d66c?w=500&auto=format&fit=crop'">
+            <div class="product-card__rating">⭐ 9.9</div>
+            ${item.labels?.length ? `<div class="product-card__badge">${item.labels[0]}</div>` : ''}
+          </div>
+          <div class="product-card__body">
+            <h3 class="product-card__title">${item.name}</h3>
+            <div class="product-card__weight">${weight}</div>
+            <div class="product-card__footer">
+              ${inCartCount > 0 ? `
+                <div class="product-card__counter" onclick="event.stopPropagation()">
+                  <button class="counter-btn" onclick="updateQty('${item.itemId}', -1)">−</button>
+                  <span>${inCartCount}</span>
+                  <button class="counter-btn" onclick="updateQty('${item.itemId}', 1)">+</button>
+                </div>
+              ` : `
+                <button class="product-card__btn" onclick="event.stopPropagation(); openProductModalByItem('${item.itemId}')">
+                  ${price} GEL
+                </button>
+              `}
+            </div>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function openProductModalByItem(id) {
+      const item = menuData.find(i => i.itemId === id);
+      if (item) openProductModal(item);
+    }
+
+    function openProductModal(item) {
+      activeProduct = item;
+      selectedModifier = null;
+      const size = item.itemSizes[0];
+      const price = size.prices[0].price;
+
+      document.getElementById('modalTitle').textContent = item.name;
+      document.getElementById('modalDesc').textContent = item.description || "Ароматное свежее блюдо от шеф-повара Royal Salmon.";
+      document.getElementById('modalWeight').textContent = size.portionWeightGrams ? `±${size.portionWeightGrams} г.` : 'Стандарт';
+      document.getElementById('modalImg').src = size.buttonImage?.src || '';
+      document.getElementById('modal-final-price').textContent = `${price} GEL`;
+
+      // Nutrition
+      const nut = size.nutritions?.[0] || {};
+      document.getElementById('kbju-cal').textContent = nut.energy || 220;
+      document.getElementById('kbju-prot').textContent = (nut.proteins || 15) + ' г';
+      document.getElementById('kbju-fats').textContent = (nut.fats || 10) + ' г';
+      document.getElementById('kbju-carbs').textContent = (nut.carbs || 12) + ' г';
+
+      // Modifiers render
+      renderModifiers();
+
+      document.getElementById('productModal').classList.remove('hidden');
+    }
+
+    function renderModifiers() {
+      const grid = document.getElementById('modifierGrid');
+      const badge = document.getElementById('mod-badge');
+      grid.innerHTML = '';
+
+      if (selectedModifier) {
+        badge.textContent = '1 из 1';
+        badge.classList.add('complete');
+      } else {
+        badge.textContent = '0 из 1';
+        badge.classList.remove('complete');
+      }
+
+      sampleModifiers.forEach(m => {
+        const isSelected = selectedModifier === m.id;
+        const card = document.createElement('div');
+        card.className = `modifier-card ${isSelected ? 'selected' : ''}`;
+        card.onclick = () => {
+          selectedModifier = isSelected ? null : m.id;
+          renderModifiers();
+        };
+
+        const title = m.name[currentLang] || m.name.en;
+        card.innerHTML = `
+          <div style="font-size:24px; margin-bottom:4px;">🥣</div>
+          <div class="modifier-card__title">${title}</div>
+          <div class="modifier-card__price">${isSelected ? '✓ Выбрано' : '+0 GEL'}</div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function confirmAddToCart() {
+      if (!activeProduct) return;
+      const id = activeProduct.itemId;
+      const price = activeProduct.itemSizes[0].prices[0].price;
+
+      if (!cart[id]) {
+        cart[id] = { item: activeProduct, qty: 0, modifier: selectedModifier, price: price };
+      }
+      cart[id].qty += 1;
+      closeProductModal();
+      updateCartUI();
+      renderProducts();
+    }
+
+    function updateQty(id, delta) {
+      if (!cart[id]) return;
+      cart[id].qty += delta;
+      if (cart[id].qty <= 0) {
+        delete cart[id];
+      }
+      updateCartUI();
+      renderProducts();
+    }
+
+    function updateCartUI() {
+      let count = 0;
+      let total = 0;
+      for (const k in cart) {
+        count += cart[k].qty;
+        total += cart[k].qty * cart[k].price;
+      }
+      document.getElementById('cart-count').textContent = count;
+      document.getElementById('cart-total-header').textContent = `${total} GEL`;
+      document.getElementById('bottom-cart-sum').textContent = `${total} GEL ➔`;
+    }
+
+    function closeProductModal() {
+      document.getElementById('productModal').classList.add('hidden');
+    }
+
+    function closeModalOnOverlay(e) {
+      if (e.target.id === 'productModal') closeProductModal();
+    }
+
+    function toggleNutrition() {
+      const body = document.getElementById('nutrition-body');
+      const arrow = document.getElementById('accordion-arrow');
+      if (body.style.display === 'none') {
+        body.style.display = 'block';
+        arrow.textContent = '▼';
+      } else {
+        body.style.display = 'none';
+        arrow.textContent = '▶';
+      }
+    }
+
+    function setLanguage(lang) {
+      currentLang = lang;
+      document.documentElement.lang = lang;
+      document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+      event.target.classList.add('active');
+
+      const dict = i18n[lang];
+      document.getElementById('announcement-text').textContent = dict.announcement;
+      document.getElementById('txt-delivery').textContent = dict.delivery;
+      document.getElementById('txt-pickup').textContent = dict.pickup;
+      document.getElementById('btn-change-address').textContent = dict.change;
+      document.getElementById('banner-tag').textContent = dict.bannerTag;
+      document.getElementById('banner-title').textContent = dict.bannerTitle;
+      document.getElementById('banner-subtitle').textContent = dict.bannerSubtitle;
+      document.getElementById('txt-kbju').textContent = dict.kbju;
+      document.getElementById('mod-group-title').textContent = dict.chooseSauce;
+      document.getElementById('txt-btn-add').textContent = dict.addToCart;
+      document.getElementById('bottom-cart-label').textContent = dict.checkout;
+      document.getElementById('txt-btn-login').textContent = dict.login;
+      document.getElementById('nav-bonuses').textContent = dict.bonuses;
+      document.getElementById('nav-promos').textContent = dict.promos;
+      document.getElementById('nav-delivery').textContent = dict.delivTerms;
+      document.getElementById('nav-faq').textContent = dict.faq;
+      document.getElementById('nav-contacts').textContent = dict.contacts;
+
+      if (activeProduct) renderModifiers();
+      renderProducts();
+    }
+
+    function setDeliveryMode(mode) {
+      currentDeliveryMode = mode;
+      document.getElementById('tab-delivery').classList.toggle('active', mode === 'delivery');
+      document.getElementById('tab-pickup').classList.toggle('active', mode === 'pickup');
+      document.getElementById('location-text').textContent = mode === 'delivery' 
+        ? 'Батуми, ул. Руставели 15' 
+        : 'Ресторан Royal Salmon, Батуми (11:00-23:00)';
+    }
+
+    function toggleDrawer() {
+      const overlay = document.getElementById('drawerOverlay');
+      const content = document.getElementById('drawerContent');
+      overlay.classList.toggle('active');
+      content.classList.toggle('active');
+    }
+
+    function closeAnnouncement() {
+      document.getElementById('announcement').style.display = 'none';
+    }
+
+    function openCart() {
+      let count = 0;
+      let total = 0;
+      let itemsList = [];
+      for (const k in cart) {
+        count += cart[k].qty;
+        total += cart[k].qty * cart[k].price;
+        itemsList.push(`${cart[k].item.name} x ${cart[k].qty} = ${cart[k].qty * cart[k].price} GEL`);
+      }
+      if (count === 0) {
+        alert('Корзина пуста. Добавьте блюда из каталога!');
+      } else {
+        alert(`Корзина Royal Salmon:\n\n${itemsList.join('\n')}\n\nИтого: ${total} GEL (включая НДС 18%)`);
+      }
+    }
+
+    function filterCategory(cat) {
+      document.querySelectorAll('.category-chip').forEach(c => c.classList.remove('active'));
+      event.target.classList.add('active');
+    }
+
+    // Initialize
+    loadData();
+  </script>
+</body>
+</html>

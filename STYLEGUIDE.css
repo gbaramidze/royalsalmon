@@ -1,0 +1,864 @@
+/**
+ * Royal Salmon Design System & UI Kit
+ * Mobile-First Stylesheet
+ * Primary Color: #2FBBBA
+ * Languages: Russian (RU), Georgian (KA/GE), English (EN)
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Fira+GO:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Raleway:wght@400;500;600;700;800&display=swap');
+
+:root {
+  /* ==========================================================================
+     1. Brand Colors & Palette
+     ========================================================================== */
+  --color-primary: #2FBBBA;
+  --color-primary-hover: #269e9d;
+  --color-primary-active: #1f8281;
+  --color-primary-light: #e6f8f8;
+  --color-primary-subtle: rgba(47, 187, 186, 0.12);
+  --color-primary-alpha20: rgba(47, 187, 186, 0.20);
+  --color-primary-alpha40: rgba(47, 187, 186, 0.40);
+  --color-primary-gradient: linear-gradient(135deg, #2FBBBA 0%, #209f9e 100%);
+
+  /* Secondary & Accents */
+  --color-secondary: #0B2530;
+  --color-accent-gold: #FFB300;
+  --color-accent-salmon: #FF6B6B;
+
+  /* System Feedback Colors */
+  --system-red: #FF3B30;
+  --system-red-light: #FEECEB;
+  --system-green: #2FB551;
+  --system-green-light: #EBF8EE;
+  --system-orange: #FF9F0A;
+  --system-orange-light: #FFF5E5;
+
+  /* Typography Fonts */
+  --font-family-base: "Raleway", "Outfit", "Fira GO", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-family-georgian: "Fira GO", "Raleway", sans-serif;
+
+  /* Elevations & Shadows */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.10);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.14);
+  --shadow-primary: 0 8px 24px rgba(47, 187, 186, 0.35);
+
+  /* Radius */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+
+  /* Spacing */
+  --space-2xs: 4px;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 20px;
+  --space-xl: 24px;
+  --space-2xl: 32px;
+
+  /* Layout */
+  --header-height: 58px;
+  --bottom-bar-height: 68px;
+  --max-mobile-width: 480px;
+
+  /* Animation */
+  --transition-fast: 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ==========================================================================
+   2. Light & Dark Themes
+   ========================================================================== */
+:root, [data-theme="light"] {
+  --bg-page: #F7F9FA;
+  --bg-surface: #FFFFFF;
+  --bg-surface-elevated: #FFFFFF;
+  --bg-muted: #F0F3F5;
+  --bg-input: #FFFFFF;
+
+  --text-main: #1B242C;
+  --text-secondary: #555F6D;
+  --text-muted: #7E8B99;
+  --text-inverse: #FFFFFF;
+
+  --border-subtle: #E4E9EF;
+  --border-strong: #D6DDE3;
+
+  --modal-backdrop: rgba(15, 23, 42, 0.65);
+}
+
+[data-theme="dark"] {
+  --bg-page: #0D1318;
+  --bg-surface: #141C24;
+  --bg-surface-elevated: #1B242E;
+  --bg-muted: #212C38;
+  --bg-input: #1B242E;
+
+  --text-main: #F4F7F9;
+  --text-secondary: #B6BFC9;
+  --text-muted: #7E8B99;
+  --text-inverse: #0D1318;
+
+  --border-subtle: #273340;
+  --border-strong: #3A4756;
+
+  --modal-backdrop: rgba(0, 0, 0, 0.75);
+}
+
+/* Multilingual Typography adjustments */
+:lang(ka) {
+  font-family: var(--font-family-georgian);
+}
+
+/* ==========================================================================
+   3. Base Reset & Layout
+   ========================================================================== */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: var(--font-family-base);
+  background-color: var(--bg-page);
+  color: var(--text-main);
+  line-height: 1.35;
+  -webkit-font-smoothing: antialiased;
+}
+
+.mobile-container {
+  max-width: var(--max-mobile-width);
+  margin: 0 auto;
+  min-height: 100vh;
+  background-color: var(--bg-surface);
+  position: relative;
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.08);
+}
+
+/* ==========================================================================
+   4. Top Announcement Banner
+   ========================================================================== */
+.announcement-banner {
+  background-color: var(--color-accent-gold);
+  color: #1B242C;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.announcement-banner__text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.announcement-banner__close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ==========================================================================
+   5. Header & Navigation
+   ========================================================================== */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background-color: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--header-height);
+}
+
+.header__left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header__menu-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-muted);
+  border: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.header__menu-btn span {
+  display: block;
+  width: 18px;
+  height: 2px;
+  background-color: var(--text-main);
+  border-radius: 2px;
+  transition: var(--transition-fast);
+}
+
+.header__logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--color-primary);
+  text-decoration: none;
+  letter-spacing: -0.02em;
+}
+
+.header__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Language Selector RU | GE | EN */
+.lang-selector {
+  display: flex;
+  background: var(--bg-muted);
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+}
+
+.lang-btn {
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.lang-btn.active {
+  background: var(--color-primary);
+  color: #FFFFFF;
+}
+
+.header__cart-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--color-primary-subtle);
+  color: var(--color-primary);
+  border: none;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.header__cart-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background-color: var(--color-primary);
+  color: #FFFFFF;
+  font-size: 10px;
+  font-weight: 800;
+  min-width: 18px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--bg-surface);
+}
+
+/* ==========================================================================
+   6. Delivery Mode Switcher & Location Selector
+   ========================================================================== */
+.delivery-tabs {
+  padding: 12px 16px 8px;
+  display: flex;
+  gap: 8px;
+}
+
+.delivery-tab {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  border: none;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  background-color: var(--bg-muted);
+  color: var(--text-secondary);
+  transition: var(--transition-fast);
+}
+
+.delivery-tab.active {
+  background-color: var(--color-primary);
+  color: #FFFFFF;
+  box-shadow: var(--shadow-sm);
+}
+
+.location-selector {
+  margin: 0 16px 12px;
+  padding: 10px 14px;
+  background-color: var(--bg-muted);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+}
+
+.location-selector__city {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.location-selector__btn {
+  background: var(--color-primary);
+  color: #FFFFFF;
+  border: none;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+}
+
+/* ==========================================================================
+   7. Category Navigation & Filters (Sticky Chips)
+   ========================================================================== */
+.category-nav {
+  position: sticky;
+  top: var(--header-height);
+  z-index: 40;
+  background-color: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 10px 16px;
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: none;
+  display: flex;
+  gap: 8px;
+}
+
+.category-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.category-chip {
+  padding: 8px 16px;
+  border-radius: var(--radius-full);
+  background-color: var(--bg-muted);
+  color: var(--text-secondary);
+  border: none;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  text-transform: uppercase;
+}
+
+.category-chip.active {
+  background-color: var(--color-primary);
+  color: #FFFFFF;
+}
+
+/* Sub-filter Tags (e.g., Salmon, Spicy, Cheese) */
+.filter-tags {
+  display: flex;
+  gap: 6px;
+  padding: 8px 16px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.filter-tags::-webkit-scrollbar {
+  display: none;
+}
+
+.filter-tag {
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.filter-tag.active {
+  border-color: var(--color-primary);
+  background: var(--color-primary-subtle);
+  color: var(--color-primary);
+}
+
+/* ==========================================================================
+   8. Product Cards & Catalog Grid
+   ========================================================================== */
+.catalog-section {
+  padding: 16px;
+}
+
+.catalog-section__title {
+  font-size: 20px;
+  font-weight: 800;
+  margin-bottom: 14px;
+  color: var(--text-main);
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+}
+
+.product-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.product-card {
+  background: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.product-card:active {
+  transform: scale(0.98);
+}
+
+.product-card__thumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 0.85;
+  background-color: var(--bg-muted);
+  overflow: hidden;
+}
+
+.product-card__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.product-card__rating {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #1B242C;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 6px;
+  border-radius: var(--radius-xs);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  box-shadow: var(--shadow-xs);
+}
+
+.product-card__badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: var(--system-red);
+  color: #FFFFFF;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 3px 6px;
+  border-radius: var(--radius-xs);
+  text-transform: uppercase;
+}
+
+.product-card__body {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+.product-card__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 4px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  height: 38px;
+  line-height: 1.3;
+}
+
+.product-card__weight {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.product-card__footer {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.product-card__btn {
+  width: 100%;
+  background: var(--color-primary);
+  color: #FFFFFF;
+  border: none;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 10px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: var(--transition-fast);
+}
+
+.product-card__btn:hover {
+  background: var(--color-primary-hover);
+}
+
+/* Quantity counter button (Active in cart state) */
+.product-card__counter {
+  width: 100%;
+  background: var(--color-primary);
+  color: #FFFFFF;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  font-weight: 700;
+}
+
+.counter-btn {
+  background: none;
+  border: none;
+  color: #FFFFFF;
+  font-size: 18px;
+  font-weight: 800;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+/* ==========================================================================
+   9. Product Detail Modal & Modifiers Engine
+   ========================================================================== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: var(--modal-backdrop);
+  backdrop-filter: blur(8px);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.modal-sheet {
+  background: var(--bg-surface);
+  border-top-left-radius: var(--radius-xl);
+  border-top-right-radius: var(--radius-xl);
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+}
+
+.modal-sheet__header {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 0.85;
+  background-color: var(--bg-muted);
+}
+
+.modal-sheet__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.modal-sheet__close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  background: rgba(0, 0, 0, 0.45);
+  color: #FFFFFF;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+}
+
+.modal-sheet__weight-tag {
+  position: absolute;
+  bottom: 12px;
+  left: 14px;
+  background: rgba(255, 255, 255, 0.95);
+  color: #1B242C;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+}
+
+.modal-sheet__content {
+  padding: 16px;
+  overflow-y: auto;
+  flex-grow: 1;
+}
+
+.modal-sheet__title {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text-main);
+  margin-bottom: 8px;
+}
+
+.modal-sheet__desc {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  margin-bottom: 16px;
+}
+
+/* Nutrition & Ingredients Accordion (КБЖУ) */
+.nutrition-accordion {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.nutrition-accordion__header {
+  padding: 12px 14px;
+  background: var(--bg-muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.nutrition-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  padding: 12px;
+  text-align: center;
+  background: var(--bg-surface);
+}
+
+.nutrition-grid__item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nutrition-grid__val {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.nutrition-grid__lbl {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.nutrition-ingredients {
+  padding: 8px 12px 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  border-top: 1px solid var(--border-subtle);
+  line-height: 1.4;
+}
+
+/* Modifiers Groups (e.g. Choose sauce: 0 of 1) */
+.modifier-group {
+  margin-bottom: 20px;
+}
+
+.modifier-group__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.modifier-group__title {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.modifier-group__rule-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  background: var(--bg-muted);
+  color: var(--text-secondary);
+}
+
+.modifier-group__rule-badge.complete {
+  background: var(--system-green);
+  color: #FFFFFF;
+}
+
+.modifier-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.modifier-card {
+  border: 1.5px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 8px;
+  text-align: center;
+  cursor: pointer;
+  background: var(--bg-surface);
+  position: relative;
+  transition: var(--transition-fast);
+}
+
+.modifier-card.selected {
+  border-color: var(--color-primary);
+  background: var(--color-primary-subtle);
+}
+
+.modifier-card__thumb {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: var(--radius-sm);
+  object-fit: contain;
+  margin-bottom: 6px;
+}
+
+.modifier-card__title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-main);
+  line-height: 1.2;
+  margin-bottom: 4px;
+}
+
+.modifier-card__price {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+/* Sticky Bottom Modal Action Bar */
+.modal-sheet__footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+}
+
+.btn-add-to-cart {
+  width: 100%;
+  background: var(--color-primary);
+  color: #FFFFFF;
+  border: none;
+  font-size: 16px;
+  font-weight: 800;
+  padding: 14px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: var(--shadow-primary);
+}
+
+.btn-add-to-cart:disabled {
+  background: var(--bg-muted);
+  color: var(--text-muted);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* ==========================================================================
+   10. Sticky Bottom Cart Bar
+   ========================================================================== */
+.sticky-bottom-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-width: var(--max-mobile-width);
+  margin: 0 auto;
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border-subtle);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 45;
+  box-shadow: var(--shadow-md);
+}
+
+.sticky-bottom-btn {
+  width: 100%;
+  background: var(--color-primary);
+  color: #FFFFFF;
+  border: none;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 14px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  box-shadow: var(--shadow-primary);
+}

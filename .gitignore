@@ -1,0 +1,29 @@
+# Secrets: keys, tokens, passwords (.env.example is the template to commit)
+.env
+.env.*
+!.env.example
+
+# Local database files: orders, Telegram sessions, complaint photos (now in Supabase)
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Supabase CLI local state (migrations stay committed)
+supabase/.branches/
+supabase/.temp/
+
+# Dependencies and builds
+node_modules/
+.next/
+out/
+build/
+tsconfig.tsbuildinfo
+next-env.d.ts
+
+# Tools and OS
+.playwright-mcp/
+.vercel/
+.DS_Store
+Thumbs.db
+*.log

@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 450" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f1f2c"/>
+      <stop offset="50%" stop-color="#142838"/>
+      <stop offset="100%" stop-color="#0a1721"/>
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#33BEBF"/>
+      <stop offset="100%" stop-color="#249394"/>
+    </linearGradient>
+    <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="12" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="600" height="450" fill="url(#bgGrad)"/>
+
+  <!-- Decorative geometric circle glow -->
+  <circle cx="300" cy="205" r="95" fill="#33BEBF" opacity="0.08" filter="url(#softGlow)"/>
+  <circle cx="300" cy="205" r="70" fill="none" stroke="#33BEBF" stroke-width="1.5" stroke-dasharray="4 6" opacity="0.25"/>
+
+  <!-- Brand Crown -->
+  <g transform="translate(300, 145) scale(0.9)">
+    <path d="M-22 10 L-28 -12 L-10 -2 L0 -18 L10 -2 L28 -12 L22 10 Z" fill="url(#accentGrad)"/>
+    <circle cx="-28" cy="-14" r="2.5" fill="#FFFFFF"/>
+    <circle cx="0" cy="-20" r="3" fill="#FFFFFF"/>
+    <circle cx="28" cy="-14" r="2.5" fill="#FFFFFF"/>
+    <rect x="-20" y="12" width="40" height="3" rx="1.5" fill="url(#accentGrad)" opacity="0.9"/>
+  </g>
+
+  <!-- Camera / No Photo Symbol -->
+  <g transform="translate(300, 218)" stroke="#A0B6C5" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Camera Body -->
+    <path d="M-28 -6 L-18 -6 L-14 -14 L14 -14 L18 -6 L28 -6 C32 -6 35 -3 35 1 L35 24 C35 28 32 31 28 31 L-28 31 C-32 31 -35 28 -35 24 L-35 1 C-35 -3 -32 -6 -28 -6 Z" opacity="0.45"/>
+    <circle cx="0" cy="12" r="11" opacity="0.45"/>
+    <!-- Diagonal Line for "No Photo" -->
+    <line x1="-38" y1="-18" x2="38" y2="35" stroke="#33BEBF" stroke-width="3" opacity="0.9"/>
+  </g>
+
+  <!-- Text: Royal Salmon -->
+  <text x="300" y="295" 
+        text-anchor="middle" 
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" 
+        font-size="13" 
+        font-weight="800" 
+        letter-spacing="3" 
+        fill="#33BEBF" 
+        opacity="0.95">
+    ROYAL SALMON
+  </text>
+
+  <!-- Text: No Photo / Нет фото -->
+  <text x="300" y="322" 
+        text-anchor="middle" 
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" 
+        font-size="16" 
+        font-weight="700" 
+        letter-spacing="0.5" 
+        fill="#E2E8F0">
+    Нет фото / No photo
+  </text>
+
+  <text x="300" y="344" 
+        text-anchor="middle" 
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" 
+        font-size="11" 
+        font-weight="500" 
+        letter-spacing="0.2" 
+        fill="#7E95A5">
+    ფოტო მალე დაემატება
+  </text>
+</svg>
