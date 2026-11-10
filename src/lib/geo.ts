@@ -3,8 +3,8 @@ export interface LatLng {
   lng: number;
 }
 
-// Royal Salmon kitchen: Batumi, Rustaveli St 15 (couriers start from here)
-export const RESTAURANT_COORDS: LatLng = { lat: 41.65139, lng: 41.63438 };
+// Royal Salmon kitchen: Batumi, 9 Ivane Javakhishvili St (couriers start from here)
+export const RESTAURANT_COORDS: LatLng = { lat: 41.6409423, lng: 41.6223071 };
 
 const ROAD_DETOUR_FACTOR = 1.4; // straight line -> approximate road distance
 const COURIER_SPEED_KMH = 25;

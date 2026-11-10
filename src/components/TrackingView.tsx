@@ -15,8 +15,8 @@ interface TrackingViewProps {
 }
 
 const POLL_INTERVAL_MS = 8000;
-const RESTAURANT_PHONE = '+995555123456';
-const RESTAURANT_PHONE_LABEL = '+995 555 123 456';
+const RESTAURANT_PHONE = '+995550505454';
+const RESTAURANT_PHONE_LABEL = '+995 550 505 454';
 
 interface DeliveryProgress {
   remainingMinutes: number;

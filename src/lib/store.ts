@@ -29,7 +29,7 @@ export const initialOrders: Order[] = [
     customerName: "Анастасия Смирнова",
     customerPhone: "+995 577 98 76 54",
     deliveryType: "pickup",
-    address: "Самовывоз: Батуми, Руставели 15",
+    address: "Самовывоз: Батуми, Джавахишвили, 9",
     items: [
       { itemId: "2101", name: "Филадельфия Роял с лососем", quantity: 2, price: 48, modifiersDescription: "Соевый соус x2" },
       { itemId: "909", name: "Европейская сырная тарелка", quantity: 1, price: 70 }

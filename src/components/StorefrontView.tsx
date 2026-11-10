@@ -39,7 +39,7 @@ interface StorefrontViewProps {
 export default function StorefrontView({ initialCategories }: StorefrontViewProps) {
   const [lang, setLang] = useState<Language>('ru');
   const [deliveryMode, setDeliveryMode] = useState<'delivery' | 'pickup'>('delivery');
-  const [address, setAddress] = useState<string>('Батуми, ул. Руставели 15');
+  const [address, setAddress] = useState<string>('Батуми, ул. Джавахишвили, 9');
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [tempAddress, setTempAddress] = useState(address);
   const [tempCoordinates, setTempCoordinates] = useState<{ lat: number; lng: number } | null>(null);
@@ -849,9 +849,9 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
       <div className="site-topbar">
         <div className="site-topbar__inner">
           <div className="site-topbar__left">
-            <a href="tel:+995555123456" className="topbar-phone-link">
+            <a href="tel:+995550505454" className="topbar-phone-link">
               <Phone size={13} className="topbar-phone-icon" />
-              <span className="topbar-phone-number">+995 555 123 456</span>
+              <span className="topbar-phone-number">+995 550 505 454</span>
             </a>
             <span className="topbar-divider">•</span>
             <span className="topbar-hours">
@@ -1158,12 +1158,12 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
               </p>
 
               <div className="footer-contacts">
-                <a href="tel:+995555123456" className="footer-contact-link">
-                  <Phone size={14} /> +995 555 123 456
+                <a href="tel:+995550505454" className="footer-contact-link">
+                  <Phone size={14} /> +995 550 505 454
                 </a>
                 <span className="footer-dot">•</span>
                 <span className="footer-address">
-                  <MapPin size={14} /> {lang === 'ru' ? 'Батуми, ул. Руставели 15' : lang === 'ka' ? 'ბათუმი, რუსთაველის ქ. 15' : 'Batumi, Rustaveli str. 15'}
+                  <MapPin size={14} /> {lang === 'ru' ? 'Батуми, ул. Джавахишвили, 9' : lang === 'ka' ? 'ბათუმი, ჯავახიშვილის ქ. 9' : 'Batumi, Javakhishvili str. 9'}
                 </span>
               </div>
             </div>
@@ -1883,7 +1883,7 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
                             type="text" 
                             value={deliveryAddress}
                             onChange={e => setDeliveryAddress(e.target.value)}
-                            placeholder={lang === 'ru' ? 'Батуми, ул. Руставели 15' : 'Rustaveli str. 15, Batumi'}
+                            placeholder={lang === 'ru' ? 'Батуми, ул. Джавахишвили, 9' : 'Javakhishvili str. 9, Batumi'}
                             style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border-strong)', fontSize: 14 }}
                           />
                         </div>
@@ -2157,7 +2157,7 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
                 type="text" 
                 value={tempAddress} 
                 onChange={e => setTempAddress(e.target.value)}
-                placeholder="Батуми, ул. Руставели 15"
+                placeholder="Батуми, ул. Джавахишвили, 9"
                 style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border-strong)', fontSize: 14, marginBottom: 14 }}
               />
               <div style={{ marginBottom: 14 }}>
@@ -2225,7 +2225,7 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
           <div className="drawer-info-card">
             <div className="drawer-info-card-item">
               <span>📍</span>
-              <span>Батуми, ул. Руставели 15</span>
+              <span>Батуми, ул. Джавахишвили, 9</span>
             </div>
             <div className="drawer-info-card-item">
               <span>🕒</span>
@@ -2233,7 +2233,7 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
             </div>
             <div className="drawer-info-card-item">
               <span>📞</span>
-              <span>+995 555 123 456</span>
+              <span>+995 550 505 454</span>
             </div>
           </div>
 
@@ -2499,9 +2499,9 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
                     <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Ресторан японской кухни премиум-класса</p>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 14 }}>
-                    <div>📍 <b>Адрес:</b> г. Батуми, ул. Руставели 15</div>
+                    <div>📍 <b>Адрес:</b> г. Батуми, ул. Джавахишвили, 9</div>
                     <div>🕒 <b>Время работы:</b> Ежедневно с 11:00 до 23:00</div>
-                    <div>📞 <b>Телефон:</b> <a href="tel:+995555123456" style={{ color: 'var(--color-primary)', textDecoration: 'none', fontWeight: 700 }}>+995 555 123 456</a></div>
+                    <div>📞 <b>Телефон:</b> <a href="tel:+995550505454" style={{ color: 'var(--color-primary)', textDecoration: 'none', fontWeight: 700 }}>+995 550 505 454</a></div>
                     <div>✈️ <b>Telegram Бот:</b> <a href="https://t.me/royalsalmon_bot" target="_blank" rel="noreferrer" style={{ color: '#229ED9', textDecoration: 'none', fontWeight: 700 }}>@royalsalmon_bot</a></div>
                   </div>
                 </div>

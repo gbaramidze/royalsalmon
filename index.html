@@ -196,7 +196,7 @@
     <div class="location-selector" onclick="alert('Выбор адреса / филиала на карте')">
       <div class="location-selector__city">
         <span>📍</span>
-        <span id="location-text">Батуми, ул. Руставели 15</span>
+        <span id="location-text">Батуми, ул. Джавахишвили, 9</span>
       </div>
       <button class="location-selector__btn" id="btn-change-address">Изменить</button>
     </div>
@@ -741,7 +741,7 @@
       document.getElementById('tab-delivery').classList.toggle('active', mode === 'delivery');
       document.getElementById('tab-pickup').classList.toggle('active', mode === 'pickup');
       document.getElementById('location-text').textContent = mode === 'delivery' 
-        ? 'Батуми, ул. Руставели 15' 
+        ? 'Батуми, ул. Джавахишвили, 9' 
         : 'Ресторан Royal Salmon, Батуми (11:00-23:00)';
     }
 

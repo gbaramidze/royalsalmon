@@ -121,11 +121,11 @@ export default function PrivacyPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 14, color: '#334155' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Phone size={15} color="var(--color-primary, #33BEBF)" />
-                <a href="tel:+995555123456" style={{ color: 'inherit', textDecoration: 'none', fontWeight: 600 }}>+995 555 123 456</a>
+                <a href="tel:+995550505454" style={{ color: 'inherit', textDecoration: 'none', fontWeight: 600 }}>+995 550 505 454</a>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <MapPin size={15} color="var(--color-primary, #33BEBF)" />
-                <span>Батуми, ул. Руставели 15, Грузия</span>
+                <span>Батуми, ул. Джавахишвили, 9, Грузия</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Mail size={15} color="var(--color-primary, #33BEBF)" />
