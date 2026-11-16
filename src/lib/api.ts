@@ -1,4 +1,5 @@
 import { ItemCategory, MenuItem } from '@/types';
+import { splitByLanguage } from '@/lib/splitByLanguage';
 
 export const RESTIQ_API_URL = 'https://api.restiq.ge/functions/v1/qr-menu?tenant_id=ec788ee8-f3c3-45c8-a402-ee13ef4b49ed';
 
@@ -68,11 +69,8 @@ export async function fetchLiveMenu(): Promise<ItemCategory[]> {
                 ka: itemName,
                 en: itemName
               },
-              description: {
-                ru: itemDesc,
-                ka: itemDesc,
-                en: itemDesc
-              },
+              // One RestIQ string holds all languages: keep each language's own part
+              description: splitByLanguage(itemDesc),
               allergens: Array.isArray(rawItem.allergens) ? rawItem.allergens : [],
               itemSizes: [
                 {
