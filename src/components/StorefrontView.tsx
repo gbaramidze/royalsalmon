@@ -103,6 +103,10 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
   // Promotions: birthday discount and the gift roll picked by the customer
   const [birthDate, setBirthDate] = useState('');
   const [giftItemId, setGiftItemId] = useState<string | null>(null);
+  // Opened as the bot's Mini App: signed Telegram data, phone confirmed by sharing the contact
+  const [tgInitData, setTgInitData] = useState('');
+  const [canShareTgContact, setCanShareTgContact] = useState(false);
+  const [isSharingTgContact, setIsSharingTgContact] = useState(false);
 
   // Verification State (SMS / Telegram)
   const [verificationMethod, setVerificationMethod] = useState<'telegram' | 'sms'>('sms');
@@ -704,6 +708,41 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
     }
   };
 
+  /** Mini App: confirm the phone by sharing the Telegram contact (no OTP code needed) */
+  const handleShareTelegramContact = () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const webApp = (window as any).Telegram?.WebApp;
+    if (!webApp?.requestContact || !tgInitData) return;
+    setOtpError(null);
+    setIsSharingTgContact(true);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    webApp.requestContact(async (shared: boolean, result?: any) => {
+      try {
+        if (!shared || typeof result?.response !== 'string') {
+          setOtpError(lang === 'ru' ? 'Номер не получен. Можно подтвердить его кодом ниже.' : 'Phone not shared. You can verify it with a code below.');
+          return;
+        }
+        const res = await fetch('/api/telegram/webapp-contact', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ initData: tgInitData, contact: result.response })
+        });
+        const data = await res.json();
+        if (!data?.success) throw new Error(data?.error);
+        setCustomerPhone(data.phone);
+        if (data.name) setCustomerName(prev => prev || data.name);
+        setIsPhoneVerified(true);
+        setIsOtpSent(false);
+        setVerificationMethod('telegram');
+        setCheckoutStep(2);
+      } catch (err) {
+        setOtpError(err instanceof Error && err.message ? err.message : (lang === 'ru' ? 'Не удалось проверить номер' : 'Could not verify the number'));
+      } finally {
+        setIsSharingTgContact(false);
+      }
+    });
+  };
+
   const focusOtpDigit = (index: number) => {
     const el = otpInputRefs.current[Math.max(0, Math.min(3, index))];
     el?.focus();
@@ -769,7 +808,7 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
 
     setIsPaying(true);
 
-    setTimeout(() => {
+    setTimeout(async () => {
       const newOrderNum = `RS-${Math.floor(1000 + Math.random() * 9000)}`;
 
       const fullAddressParts = [
@@ -801,13 +840,15 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
           name: c.item.name[lang] || c.item.name.en,
           quantity: c.quantity,
           price: c.item.itemSizes[0].prices[0].price,
-          modifiersDescription: c.modifier ? (c.modifier.name[lang] || c.modifier.name.en) : undefined
+          modifiersDescription: c.modifier ? (c.modifier.name[lang] || c.modifier.name.en) : undefined,
+          isGift: false
         })).concat(giftRoll ? [{
           itemId: giftRoll.itemId,
           name: `🎁 ${giftRoll.name[lang] || giftRoll.name.en} (${lang === 'ru' ? 'подарок' : lang === 'ka' ? 'საჩუქარი' : 'gift'})`,
           quantity: 1,
           price: 0,
-          modifiersDescription: undefined
+          modifiersDescription: undefined,
+          isGift: true
         }] : []),
         subtotal,
         deliveryFee,
@@ -826,9 +867,34 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
         ].filter(Boolean).join('\n')
       };
 
+      // Send the order to the restaurant (POS) and wait: the cart is kept if it didn't get through
+      let placedOrder: Order = newOrder;
+      try {
+        const res = await fetch('/api/telegram/order-notification', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(tgInitData ? { ...newOrder, telegramInitData: tgInitData } : newOrder)
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data?.success) {
+          throw new Error(data?.error || `HTTP ${res.status}`);
+        }
+        // Server re-prices the order from the live menu
+        if (data.order) placedOrder = data.order;
+      } catch (err) {
+        console.error('Failed to place order:', err);
+        setIsPaying(false);
+        alert(
+          lang === 'ru'
+            ? `Не удалось отправить заказ: ${err instanceof Error ? err.message : err}\nПопробуйте ещё раз или позвоните нам: +995 550 505 454`
+            : `Could not place the order: ${err instanceof Error ? err.message : err}\nPlease try again or call us: +995 550 505 454`
+        );
+        return;
+      }
+
       if (typeof window !== 'undefined') {
         const existing: Order[] = JSON.parse(localStorage.getItem('rs_orders') || '[]');
-        localStorage.setItem('rs_orders', JSON.stringify([newOrder, ...existing]));
+        localStorage.setItem('rs_orders', JSON.stringify([placedOrder, ...existing]));
 
         // Remember the customer so the next checkout is pre-filled
         try {
@@ -856,21 +922,12 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
         }
       }
 
-      // Send order notification to Telegram
-      fetch('/api/telegram/order-notification', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newOrder)
-      }).catch(err => {
-        console.error('Failed to send Telegram order notification:', err);
-      });
-
       setIsPaying(false);
       setIsCheckoutOpen(false);
       setIsCartOpen(false);
       setCart({});
       setGiftItemId(null);
-      setConfirmedOrder(newOrder);
+      setConfirmedOrder(placedOrder);
     }, 1100);
   };
 
@@ -886,6 +943,8 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
           if (!webApp?.initData) return;
           webApp.ready();
           webApp.expand();
+          setTgInitData(webApp.initData);
+          setCanShareTgContact(typeof webApp.requestContact === 'function' && Boolean(webApp.isVersionAtLeast?.('6.9')));
           const tgName = webApp.initDataUnsafe?.user?.first_name;
           if (tgName) setCustomerName(prev => prev || tgName);
         }}
@@ -1695,6 +1754,32 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
               <>
                 <div style={{ padding: 20, overflowY: 'auto', flex: '1 1 auto', minHeight: 0 }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 16 }}>
+                    {/* Mini App: one tap instead of an OTP code */}
+                    {canShareTgContact && !isPhoneVerified && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <button
+                          type="button"
+                          className="bottom-cta-add-btn"
+                          style={{ justifyContent: 'center', background: '#229ED9' }}
+                          onClick={handleShareTelegramContact}
+                          disabled={isSharingTgContact}
+                        >
+                          <Send size={16} />
+                          <span>
+                            {isSharingTgContact
+                              ? (lang === 'ru' ? 'Проверяем…' : 'Checking…')
+                              : (lang === 'ru' ? 'Поделиться номером из Telegram' : lang === 'ka' ? 'ნომრის გაზიარება Telegram-იდან' : 'Share phone from Telegram')}
+                          </span>
+                        </button>
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center' }}>
+                          {lang === 'ru' ? 'Без кода — номер подтвердит Telegram. Или введите номер вручную ниже.' : 'No code needed — Telegram confirms the number. Or enter it manually below.'}
+                        </div>
+                        {otpError && !isOtpSent && (
+                          <div style={{ fontSize: 12, color: 'var(--system-red, #DC2626)', textAlign: 'center' }}>{otpError}</div>
+                        )}
+                      </div>
+                    )}
+
                     {/* Phone Input */}
                     <div>
                       <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: 5 }}>

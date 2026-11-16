@@ -40,7 +40,7 @@ async function getContactChatId(contact: string): Promise<number | null> {
   return row?.chat_id ?? null;
 }
 
-async function linkContact(contact: string, chatId: number) {
+export async function linkContact(contact: string, chatId: number) {
   check(
     await getSupabase()
       .from('telegram_contacts')
@@ -422,11 +422,13 @@ export interface OrderNotificationData {
 /**
  * Send order confirmation notification to user's Telegram chat
  */
-export async function sendOrderNotification(order: OrderNotificationData) {
+export async function sendOrderNotification(order: OrderNotificationData, knownChatId?: number) {
   const phone = cleanPhoneNumber(order.customerPhone);
 
-  // Chat linked to this phone, else the chat that talked to the bot within the last day
+  // Chat of the Mini App user who placed the order, else the chat linked to this phone,
+  // else the chat that talked to the bot within the last day
   const chatId =
+    knownChatId ??
     (await getContactChatId(phone)) ??
     (await getOtpSession(phone))?.chat_id ??
     (await getLatestChatId(24 * 60 * 60 * 1000));
