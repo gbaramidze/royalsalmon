@@ -118,7 +118,7 @@ export async function sendOrderToPos(order: Order): Promise<PosOrderResult> {
   try {
     const res = await fetch(POS_ORDERS_URL, {
       method: 'POST',
-      headers: { 'x-api-key': RESTIQ_API_KEY, 'Content-Type': 'application/json' },
+      headers: { 'x-api-key': RESTIQ_API_KEY, 'Content-Type': 'application/json; charset=utf-8' },
       body: JSON.stringify(body),
       cache: 'no-store',
     });
@@ -131,5 +131,85 @@ export async function sendOrderToPos(order: Order): Promise<PosOrderResult> {
   } catch (error) {
     console.error('POS online-orders request failed:', error);
     return { ok: false, error: String(error) };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Order status from the POS
+// ---------------------------------------------------------------------------
+
+export type PosOrderStatus = 'accepted' | 'preparing' | 'ready' | 'completed' | 'rejected';
+
+export interface PosStatus {
+  status: PosOrderStatus;
+  /** Staff confirmed the order (paid orders are confirmed automatically) */
+  confirmed: boolean;
+  rejectionReason: string | null;
+}
+
+/** The API asks for no more than one poll per 5–10 s per order */
+const STATUS_CACHE_MS = 8000;
+const statusCache = new Map<string, { at: number; value: PosStatus | null }>();
+let statusEndpointMissingLogged = false;
+
+/** Current POS status of a site order (looked up by `external_id` = site order id); null if unknown */
+export async function getPosOrderStatus(siteOrderId: string): Promise<PosStatus | null> {
+  if (!RESTIQ_API_KEY) return null;
+
+  const cached = statusCache.get(siteOrderId);
+  if (cached && Date.now() - cached.at < STATUS_CACHE_MS) return cached.value;
+
+  let value: PosStatus | null = null;
+  try {
+    const res = await fetch(`${POS_ORDERS_URL}?external_id=${encodeURIComponent(siteOrderId)}`, {
+      headers: { 'x-api-key': RESTIQ_API_KEY },
+      cache: 'no-store',
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (['accepted', 'preparing', 'ready', 'completed', 'rejected'].includes(data?.status)) {
+        value = {
+          status: data.status,
+          confirmed: Boolean(data.confirmed),
+          rejectionReason: typeof data.rejection_reason === 'string' && data.rejection_reason ? data.rejection_reason : null,
+        };
+      }
+    } else if (res.status === 405) {
+      // Older RestIQ function without the status endpoint
+      if (!statusEndpointMissingLogged) {
+        statusEndpointMissingLogged = true;
+        console.warn('RestIQ online-orders has no GET status yet (405): deploy the new function version');
+      }
+    } else if (res.status !== 404) {
+      console.error('POS order status error:', res.status, await res.text().catch(() => ''));
+    }
+  } catch (error) {
+    console.error('POS order status request failed:', error);
+  }
+
+  statusCache.set(siteOrderId, { at: Date.now(), value });
+  // Keep the cache small: drop entries older than a minute
+  if (statusCache.size > 500) {
+    for (const [key, entry] of statusCache) if (Date.now() - entry.at > 60_000) statusCache.delete(key);
+  }
+  return value;
+}
+
+/**
+ * Site status for a POS status. For pickup "ready" is "ready for pickup" (shown by the site's
+ * in_delivery step); for delivery the courier departure is still set from the admin panel.
+ */
+export function siteStatusFromPos(pos: PosStatus, deliveryType: Order['deliveryType']): Order['status'] {
+  switch (pos.status) {
+    case 'preparing':
+      return 'preparing';
+    case 'ready':
+      return deliveryType === 'pickup' ? 'in_delivery' : 'preparing';
+    case 'completed':
+      return 'completed';
+    case 'rejected':
+      return 'cancelled';
+    default:
+      return 'new';
   }
 }

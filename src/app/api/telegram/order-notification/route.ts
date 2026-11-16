@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { sendOrderNotification } from '@/lib/telegram';
+import { sendOrderNotification, sendStaffOrderNotification } from '@/lib/telegram';
 import { saveOrder } from '@/lib/orders';
 import { DELIVERY_ENABLED } from '@/lib/promos';
 import { normalizeOrder, OrderValidationError, sendOrderToPos } from '@/lib/posOrders';
@@ -52,8 +52,19 @@ export async function POST(req: Request) {
       console.error('Failed to save order:', error);
     }
 
-    // The restaurant has the order if the POS took it; without a POS key, if it was saved
-    const accepted = pos.ok || (Boolean(pos.skipped) && saved);
+    // 3. Staff chat: every new order, and the fallback when the POS didn't take it
+    let staffNotified = false;
+    try {
+      const staff = await sendStaffOrderNotification(order, pos);
+      staffNotified = Boolean(staff?.ok);
+      if (!staffNotified) console.error('Staff order notification failed:', staff);
+    } catch (error) {
+      console.error('Failed to send staff order notification:', error);
+    }
+
+    // The restaurant has the order if the POS took it or staff were told in Telegram;
+    // without a POS key, also if it was saved
+    const accepted = pos.ok || staffNotified || (Boolean(pos.skipped) && saved);
     if (!accepted) {
       return NextResponse.json({
         success: false,
@@ -62,7 +73,7 @@ export async function POST(req: Request) {
       }, { status: 502 });
     }
 
-    // 3. Customer confirmation in Telegram (best effort)
+    // 4. Customer confirmation in Telegram (best effort)
     let telegram: unknown = null;
     try {
       telegram = await sendOrderNotification(order, telegramUser?.id);
@@ -70,7 +81,7 @@ export async function POST(req: Request) {
       console.error('Failed to send Telegram order notification:', error);
     }
 
-    return NextResponse.json({ success: true, order, pos, saved, telegram });
+    return NextResponse.json({ success: true, order, pos, saved, staffNotified, telegram });
   } catch (error) {
     if (error instanceof OrderValidationError) {
       return NextResponse.json({ success: false, error: error.message }, { status: 400 });

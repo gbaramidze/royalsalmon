@@ -61,6 +61,10 @@ export interface TrackingView {
   restaurant: LatLng;
   route: TrackingRoute | null;
   complaintsCount: number;
+  /** From the restaurant POS: staff confirmed the order; null when the POS status is unknown */
+  posConfirmed: boolean | null;
+  /** Why the restaurant rejected the order, if it said */
+  rejectionReason: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -310,6 +314,8 @@ export function toTrackingView(order: StoredOrder): TrackingView {
     restaurant: RESTAURANT_COORDS,
     route: null,
     complaintsCount: order.complaintsCount,
+    posConfirmed: null,
+    rejectionReason: null,
   };
 }
 

@@ -4,7 +4,7 @@ import { normalizePhone } from '@/lib/orders';
 export const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 export const TELEGRAM_BOT_USERNAME = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'royalsalmon_bot';
 // Public HTTPS origin of the site; Telegram only opens Mini App buttons over HTTPS
-// Chat (or group) where staff receive customer complaints; complaints are only stored when unset
+// Staff chat (or group): new order alerts and customer complaints; when unset, nothing is sent there
 export const TELEGRAM_STAFF_CHAT_ID = process.env.TELEGRAM_STAFF_CHAT_ID || '';
 export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://royalsalmon.ge').replace(/\/+$/, '');
 
@@ -480,3 +480,38 @@ export async function sendOrderNotification(order: OrderNotificationData, knownC
   return await sendTelegramMessage(chatId, text, replyMarkup);
 }
 
+
+const escapeHtml = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+/**
+ * New order alert for the staff chat (TELEGRAM_STAFF_CHAT_ID).
+ * Also the fallback when the POS didn't take the order, so staff can enter it by hand.
+ */
+export async function sendStaffOrderNotification(
+  order: OrderNotificationData,
+  pos: { ok: boolean; skipped?: boolean; error?: string }
+) {
+  if (!TELEGRAM_STAFF_CHAT_ID) return { ok: false, error: 'TELEGRAM_STAFF_CHAT_ID is not set' };
+
+  const itemsList = order.items
+    .map(it => `• ${escapeHtml(it.name)} × ${it.quantity} — ${(it.price * it.quantity).toFixed(2)} GEL`)
+    .join('\n');
+
+  const posLine = pos.ok
+    ? '✅ Передан в POS — подтвердите в «Онлайн заказы»'
+    : `⚠️ <b>НЕ попал в POS</b>${pos.error ? ` (${escapeHtml(pos.error)})` : ''} — внесите заказ вручную`;
+
+  const text =
+    `🛎 <b>Новый заказ #${escapeHtml(order.orderNumber)}</b>\n` +
+    `${order.deliveryType === 'delivery' ? `🛵 Доставка: ${escapeHtml(order.address)}` : '🛍 Самовывоз'}\n\n` +
+    `👤 ${escapeHtml(order.customerName)}\n` +
+    `📞 <code>${escapeHtml(order.customerPhone)}</code>\n\n` +
+    `${itemsList}\n\n` +
+    (order.deliveryFee > 0 ? `Доставка: ${order.deliveryFee.toFixed(2)} GEL\n` : '') +
+    `<b>Итого: ${order.total.toFixed(2)} GEL</b>\n` +
+    `💳 ${order.paymentMethod === 'cash' ? 'Наличные' : 'Картой'} при получении\n` +
+    (order.notes ? `\n📝 ${escapeHtml(order.notes)}\n` : '') +
+    `\n${posLine}`;
+
+  return await sendTelegramMessage(TELEGRAM_STAFF_CHAT_ID, text);
+}

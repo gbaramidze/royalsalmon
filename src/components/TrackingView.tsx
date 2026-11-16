@@ -452,8 +452,14 @@ export default function TrackingView({ orderId, editMode = false }: TrackingView
             {order.status === 'new' && (
               <>
                 <div className="tracking-emoji">🧾</div>
-                <h1 className="tracking-title">Заказ принят</h1>
-                <p className="tracking-subtitle">Передаём его на кухню — скоро начнём готовить.</p>
+                <h1 className="tracking-title">{order.posConfirmed === false ? 'Заказ отправлен в ресторан' : 'Заказ принят'}</h1>
+                <p className="tracking-subtitle">
+                  {order.posConfirmed === false
+                    ? 'Ждём подтверждения ресторана — обычно это пара минут.'
+                    : order.posConfirmed
+                      ? 'Ресторан подтвердил заказ — скоро начнём готовить.'
+                      : 'Передаём его на кухню — скоро начнём готовить.'}
+                </p>
               </>
             )}
 
@@ -505,6 +511,7 @@ export default function TrackingView({ orderId, editMode = false }: TrackingView
               <>
                 <div className="tracking-emoji">✕</div>
                 <h1 className="tracking-title">Заказ отменён</h1>
+                {order.rejectionReason && <p className="tracking-subtitle">Причина: {order.rejectionReason}</p>}
                 <p className="tracking-subtitle">Если это ошибка — позвоните нам.</p>
               </>
             )}
