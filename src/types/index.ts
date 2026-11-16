@@ -132,13 +132,9 @@ export interface Order {
     quantity: number;
     price: number;
     modifiersDescription?: string;
-    /** Free roll from the "1 roll from 100 GEL" promo */
-    isGift?: boolean;
   }>;
   subtotal: number;
   deliveryFee: number;
-  /** Birthday discount in GEL, already taken off `total` */
-  discount?: number;
   tax: number;
   total: number;
   status: OrderStatus;

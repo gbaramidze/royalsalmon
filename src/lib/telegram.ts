@@ -411,7 +411,6 @@ export interface OrderNotificationData {
   }>;
   subtotal: number;
   deliveryFee: number;
-  discount?: number;
   tax: number;
   total: number;
   paymentMethod: string;
@@ -450,7 +449,7 @@ export async function sendOrderNotification(order: OrderNotificationData, knownC
     ? `🛵 <b>Доставка:</b> ${order.address}${mapsLink}` 
     : `🛍️ <b>Самовывоз:</b> ${order.address}`;
 
-  const paymentMethodLabel = order.paymentMethod === 'cash' ? 'Наличные' : 'Картой';
+  const paymentMethodLabel = order.paymentMethod === 'cash' ? 'Наличные' : 'Картой при получении';
 
   const text = 
     `👑 <b>Royal Salmon — Заказ успешно оформлен!</b>\n\n` +
@@ -459,7 +458,6 @@ export async function sendOrderNotification(order: OrderNotificationData, knownC
     `Телефон: <code>${order.customerPhone}</code>\n\n` +
     `🍣 <b>Состав заказа:</b>\n${itemsList}\n\n` +
     `💰 <b>Сумма блюд:</b> ${order.subtotal.toFixed(2)} GEL\n` +
-    (order.discount ? `🎂 <b>Скидка ко дню рождения:</b> −${order.discount.toFixed(2)} GEL\n` : '') +
     (order.deliveryType === 'delivery'
       ? (order.deliveryFee > 0 ? `📦 <b>Доставка:</b> ${order.deliveryFee.toFixed(2)} GEL\n` : `📦 <b>Доставка:</b> Бесплатно\n`)
       : '') +

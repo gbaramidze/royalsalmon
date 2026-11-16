@@ -1,12 +1,6 @@
 import { Order } from '@/types';
 import { fetchLiveMenu } from '@/lib/api';
-import {
-  BIRTHDAY_DISCOUNT_PERCENT,
-  GIFT_ROLL_FROM,
-  GIFT_ROLL_MAX_PRICE,
-  getDeliveryFee,
-  isRollCategory,
-} from '@/lib/promos';
+import { GIFT_ROLL_FROM, getDeliveryFee } from '@/lib/promos';
 
 /**
  * RestIQ Online Orders API: sends site orders to the restaurant's POS terminals.
@@ -17,64 +11,52 @@ const RESTIQ_API_KEY = process.env.RESTIQ_API_KEY || '';
 
 const round2 = (value: number) => Math.round(value * 100) / 100;
 
+/** Line added to the order when it qualifies for the gift roll (the restaurant picks the roll) */
+export const GIFT_NOTE = `🎁 Подарок: 1 ролл на выбор ресторана (заказ от ${GIFT_ROLL_FROM} GEL)`;
+
 export class OrderValidationError extends Error {}
 
 /**
  * Re-price the order from the live menu so the browser can't change prices,
- * and recompute the gift roll, birthday discount, delivery fee and totals.
+ * recompute the delivery fee and totals, and mark the gift roll.
+ * Nothing is paid on the site yet, so the order is always "pending" payment.
  */
 export async function normalizeOrder(order: Order): Promise<Order> {
   const categories = await fetchLiveMenu();
-  if (categories.length === 0) {
-    // Menu is unreachable: keep the order (POS staff see the sum before confirming)
-    console.warn('Live menu unavailable, order prices not verified:', order.id);
-    return order;
-  }
-
   const menuPrices = new Map<string, number>();
-  const giftRollIds = new Set<string>();
   for (const category of categories) {
     for (const item of category.items) {
-      const price = item.itemSizes[0]?.prices[0]?.price ?? 0;
-      menuPrices.set(item.itemId, price);
-      if (isRollCategory(category) && (GIFT_ROLL_MAX_PRICE === null || price <= GIFT_ROLL_MAX_PRICE)) {
-        giftRollIds.add(item.itemId);
-      }
+      menuPrices.set(item.itemId, item.itemSizes[0]?.prices[0]?.price ?? 0);
     }
   }
+  if (menuPrices.size === 0) {
+    // Menu is unreachable: keep the browser prices (POS staff see the sum before confirming)
+    console.warn('Live menu unavailable, order prices not verified:', order.id);
+  }
 
-  const paidItems = order.items.filter(item => !item.isGift);
-  const giftItems = order.items.filter(item => item.isGift);
-
-  const items = paidItems.map(item => {
-    const price = menuPrices.get(item.itemId);
-    if (price === undefined) throw new OrderValidationError(`Блюдо больше недоступно: ${item.name}`);
+  const items = order.items.map(item => {
     const quantity = Math.floor(item.quantity);
     if (!(quantity > 0 && quantity <= 999)) throw new OrderValidationError(`Некорректное количество: ${item.name}`);
+    if (menuPrices.size === 0) return { ...item, quantity };
+    const price = menuPrices.get(item.itemId);
+    if (price === undefined) throw new OrderValidationError(`Блюдо больше недоступно: ${item.name}`);
     return { ...item, price, quantity };
   });
   if (items.length === 0) throw new OrderValidationError('Корзина пуста');
 
   const subtotal = round2(items.reduce((sum, item) => sum + item.price * item.quantity, 0));
-
-  // One gift roll, only from the threshold and only a roll
-  const gift = giftItems[0];
-  if (gift && subtotal >= GIFT_ROLL_FROM && giftRollIds.has(gift.itemId)) {
-    items.push({ ...gift, price: 0, quantity: 1, isGift: true });
-  }
-
-  // The birthday itself is checked against a document on pickup; here only the amount
-  const discount = order.discount && order.discount > 0 ? round2(subtotal * BIRTHDAY_DISCOUNT_PERCENT / 100) : 0;
   const deliveryFee = getDeliveryFee(order.deliveryType, subtotal);
+  const customerNotes = (order.notes || '').trim();
 
   return {
     ...order,
     items,
     subtotal,
-    discount: discount || undefined,
     deliveryFee,
-    tax: Number(((subtotal - discount) * 0.18).toFixed(1)),
-    total: round2(subtotal - discount + deliveryFee),
+    tax: Number((subtotal * 0.18).toFixed(1)),
+    total: round2(subtotal + deliveryFee),
+    paymentStatus: 'pending',
+    notes: [customerNotes, subtotal >= GIFT_ROLL_FROM ? GIFT_NOTE : ''].filter(Boolean).join('\n') || undefined,
   };
 }
 
@@ -95,22 +77,14 @@ export async function sendOrderToPos(order: Order): Promise<PosOrderResult> {
     return { ok: false, skipped: true, error: 'RESTIQ_API_KEY is not set' };
   }
 
-  // The API has no discount field and sums price × quantity itself,
-  // so the birthday discount goes into the unit prices and the POS total matches what the customer pays
-  const discountFactor = order.discount && order.subtotal > 0 ? 1 - order.discount / order.subtotal : 1;
-
   const items = order.items.map(item => {
     const itemId = Number(item.itemId);
-    const comment = [
-      item.isGift ? 'ПОДАРОК (акция от 100 GEL)' : '',
-      item.modifiersDescription ? `соус: ${item.modifiersDescription}` : '',
-    ].filter(Boolean).join(', ');
     return {
       ...(Number.isInteger(itemId) && itemId > 0 ? { item_id: itemId } : {}),
       name: item.name.slice(0, 200),
-      price: round2(item.price * discountFactor),
+      price: item.price,
       quantity: item.quantity,
-      ...(comment ? { comment: comment.slice(0, 300) } : {}),
+      ...(item.modifiersDescription ? { comment: `соус: ${item.modifiersDescription}`.slice(0, 300) } : {}),
     };
   });
 
@@ -119,13 +93,10 @@ export async function sendOrderToPos(order: Order): Promise<PosOrderResult> {
     items.push({ name: 'Доставка', price: order.deliveryFee, quantity: 1 });
   }
 
-  const paymentLabel = order.paymentMethod === 'cash' ? 'наличными' : 'картой';
   const comment = [
     `Сайт, заказ #${order.orderNumber}`,
-    `Оплата ${paymentLabel} при получении`,
-    order.discount ? `Скидка ДР ${BIRTHDAY_DISCOUNT_PERCENT}% (−${order.discount} GEL) уже в ценах, проверить документ` : '',
-    // Customer comment (the birthday line is already covered above)
-    order.notes?.split('\n').filter(line => !line.startsWith('🎂')).join('\n'),
+    'Оплата при получении',
+    order.notes,
   ].filter(Boolean).join('. ');
 
   const body = {
@@ -137,8 +108,8 @@ export async function sendOrderToPos(order: Order): Promise<PosOrderResult> {
       ...(order.deliveryType === 'delivery' ? { address: order.address.slice(0, 300) } : {}),
     },
     comment: comment.slice(0, 500),
-    // Online card payment on the site is not connected to a bank yet, so nothing is paid in advance:
-    // never send is_paid / "online", or staff would be told not to take money
+    // Online card payment isn't connected to a bank yet: never send is_paid / "online",
+    // or the POS would accept the order as paid and staff would be told not to take money
     payment_type: order.paymentMethod === 'cash' ? 'cash' : 'card',
     is_paid: false,
     items,

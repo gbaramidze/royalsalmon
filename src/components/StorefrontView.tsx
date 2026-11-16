@@ -35,13 +35,11 @@ import {
   FREE_DELIVERY_FROM,
   DELIVERY_FEE,
   GIFT_ROLL_FROM,
-  GIFT_ROLL_MAX_PRICE,
   BIRTHDAY_DISCOUNT_PERCENT,
   BIRTHDAY_DAYS_AFTER,
+  CARD_PAYMENT_ENABLED,
   getDeliveryFee,
-  getBirthdayDiscount,
-  isBirthdayWindow,
-  isRollCategory,
+  isExtrasCategory,
 } from '@/lib/promos';
 import { RoyalSalmonLogo } from '@/components/RoyalSalmonLogo';
 import { PaymentBadges, VisaLogo, MastercardLogo } from '@/components/PaymentLogos';
@@ -97,12 +95,9 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
   const [floor, setFloor] = useState('');
   const [intercom, setIntercom] = useState('');
   const [isMapVisible, setIsMapVisible] = useState(true);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('card_online');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(CARD_PAYMENT_ENABLED ? 'card_online' : 'cash');
   const [isPaying, setIsPaying] = useState(false);
   const [confirmedOrder, setConfirmedOrder] = useState<Order | null>(null);
-  // Promotions: birthday discount and the gift roll picked by the customer
-  const [birthDate, setBirthDate] = useState('');
-  const [giftItemId, setGiftItemId] = useState<string | null>(null);
   // Opened as the bot's Mini App: signed Telegram data, phone confirmed by sharing the contact
   const [tgInitData, setTgInitData] = useState('');
   const [canShareTgContact, setCanShareTgContact] = useState(false);
@@ -190,8 +185,7 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
       if (p.entrance) setEntrance(p.entrance);
       if (p.floor) setFloor(p.floor);
       if (p.intercom) setIntercom(p.intercom);
-      if (p.paymentMethod === 'card_online' || p.paymentMethod === 'cash') setPaymentMethod(p.paymentMethod);
-      if (typeof p.birthDate === 'string') setBirthDate(p.birthDate);
+      if (p.paymentMethod === 'cash' || (p.paymentMethod === 'card_online' && CARD_PAYMENT_ENABLED)) setPaymentMethod(p.paymentMethod);
     } catch (err) {
       console.warn('Failed to restore customer profile:', err);
     }
@@ -289,12 +283,26 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
     return () => window.removeEventListener('scroll', handleScrollDirection);
   }, [searchQuery]);
 
+  // Sauces, chopsticks, wasabi etc. aren't in the dish price: offered in the cart, not in the catalog
+  const menuCategories = useMemo(() => categories.filter(cat => !isExtrasCategory(cat)), [categories]);
+  const extraItems = useMemo(
+    () =>
+      categories
+        .filter(isExtrasCategory)
+        .flatMap(cat => cat.items)
+        .filter(item => !item.isHidden)
+        // The menu lists some extras twice
+        .filter((item, index, all) => all.findIndex(other => other.itemId === item.itemId) === index),
+    [categories]
+  );
+  const extraIds = useMemo(() => new Set(extraItems.map(item => item.itemId)), [extraItems]);
+
   // Real-time search filter across categories and products
   const displayCategories = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return categories;
+    if (!q) return menuCategories;
 
-    return categories
+    return menuCategories
       .map(cat => {
         const matchingItems = cat.items.filter(item => {
           const nameRu = (item.name.ru || '').toLowerCase();
@@ -313,7 +321,7 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
         };
       })
       .filter(cat => cat.items.length > 0);
-  }, [categories, searchQuery]);
+  }, [menuCategories, searchQuery]);
 
   // Cancel programmatic scroll lock if user manually touches screen or scrolls wheel
   useEffect(() => {
@@ -549,25 +557,11 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
   // Cart calculations
   const cartEntries = Object.values(cart);
   const cartItemsCount = cartEntries.reduce((acc, c) => acc + c.quantity, 0);
-  const subtotal = cartEntries.reduce((acc, c) => acc + c.quantity * c.item.itemSizes[0].prices[0].price, 0);
+  const subtotal = Math.round(cartEntries.reduce((acc, c) => acc + c.quantity * c.item.itemSizes[0].prices[0].price, 0) * 100) / 100;
   const deliveryFee = getDeliveryFee(deliveryMode, subtotal);
-  const birthdayDiscount = getBirthdayDiscount(subtotal, birthDate);
-  const total = Math.round((subtotal - birthdayDiscount + deliveryFee) * 100) / 100;
-
-  // Gift roll: any roll from the roll categories, cheapest first
-  const giftRollOptions = useMemo(
-    () =>
-      categories
-        .filter(isRollCategory)
-        .flatMap(cat => cat.items)
-        .filter(item => !item.isHidden)
-        .filter((item, index, all) => all.findIndex(other => other.itemId === item.itemId) === index)
-        .filter(item => GIFT_ROLL_MAX_PRICE === null || item.itemSizes[0].prices[0].price <= GIFT_ROLL_MAX_PRICE)
-        .sort((a, b) => a.itemSizes[0].prices[0].price - b.itemSizes[0].prices[0].price),
-    [categories]
-  );
+  const total = Math.round((subtotal + deliveryFee) * 100) / 100;
+  // Gift roll from GIFT_ROLL_FROM GEL: the restaurant picks which roll
   const isGiftEligible = subtotal >= GIFT_ROLL_FROM;
-  const giftRoll = isGiftEligible ? giftRollOptions.find(item => item.itemId === giftItemId) || null : null;
 
   const handleOpenProduct = (item: MenuItem) => {
     setSelectedProduct(item);
@@ -601,25 +595,18 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
 
   const handlePriceClick = (item: MenuItem, e: React.MouseEvent) => {
     e.stopPropagation();
-    const size = item.itemSizes[0];
-    const hasModifiers = Boolean(
-      size?.itemModifierGroups &&
-      size.itemModifierGroups.length > 0 &&
-      size.itemModifierGroups.some(g => Array.isArray(g.modifiers) && g.modifiers.length > 0)
-    );
+    addToCart(item);
+  };
 
-    if (hasModifiers) {
-      handleOpenProduct(item);
-    } else {
-      const id = item.itemId;
-      setCart(prev => ({
-        ...prev,
-        [id]: {
-          item,
-          quantity: (prev[id]?.quantity || 0) + 1
-        }
-      }));
-    }
+  const addToCart = (item: MenuItem) => {
+    const id = item.itemId;
+    setCart(prev => ({
+      ...prev,
+      [id]: {
+        item,
+        quantity: (prev[id]?.quantity || 0) + 1
+      }
+    }));
   };
 
   const handleAddToCartFromModal = () => {
@@ -840,31 +827,18 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
           name: c.item.name[lang] || c.item.name.en,
           quantity: c.quantity,
           price: c.item.itemSizes[0].prices[0].price,
-          modifiersDescription: c.modifier ? (c.modifier.name[lang] || c.modifier.name.en) : undefined,
-          isGift: false
-        })).concat(giftRoll ? [{
-          itemId: giftRoll.itemId,
-          name: `🎁 ${giftRoll.name[lang] || giftRoll.name.en} (${lang === 'ru' ? 'подарок' : lang === 'ka' ? 'საჩუქარი' : 'gift'})`,
-          quantity: 1,
-          price: 0,
-          modifiersDescription: undefined,
-          isGift: true
-        }] : []),
+          modifiersDescription: c.modifier ? (c.modifier.name[lang] || c.modifier.name.en) : undefined
+        })),
         subtotal,
         deliveryFee,
-        discount: birthdayDiscount || undefined,
-        tax: Number(((subtotal - birthdayDiscount) * 0.18).toFixed(1)),
+        tax: Number((subtotal * 0.18).toFixed(1)),
         total,
         status: 'new',
         paymentMethod,
-        paymentStatus: paymentMethod === 'cash' ? 'pending' : 'paid',
+        // Nothing is charged on the site yet: payment is taken on pickup
+        paymentStatus: 'pending',
         createdAt: new Date().toISOString(),
-        notes: [
-          customerComment.trim(),
-          birthdayDiscount > 0
-            ? `🎂 Скидка ко дню рождения ${BIRTHDAY_DISCOUNT_PERCENT}% (−${birthdayDiscount} GEL), дата рождения ${birthDate.split('-').reverse().join('.')} — проверить документ`
-            : '',
-        ].filter(Boolean).join('\n')
+        notes: customerComment.trim() || undefined
       };
 
       // Send the order to the restaurant (POS) and wait: the cart is kept if it didn't get through
@@ -906,7 +880,6 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
             phone: customerPhone.trim(),
             verificationMethod,
             paymentMethod,
-            birthDate,
             // Pickup orders keep the previously saved delivery address
             ...(isDelivery ? {
               deliveryAddress: deliveryAddress.trim(),
@@ -926,7 +899,6 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
       setIsCheckoutOpen(false);
       setIsCartOpen(false);
       setCart({});
-      setGiftItemId(null);
       setConfirmedOrder(placedOrder);
     }, 1100);
   };
@@ -1032,7 +1004,7 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
 
             {/* Desktop Navigation Links */}
             <nav className="app-header__desktop-nav">
-              {categories.map(cat => (
+              {menuCategories.map(cat => (
                 <a 
                   key={cat.id}
                   href={`#section-${cat.slug}`} 
@@ -1453,38 +1425,6 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
                     </div>
                   )}
 
-                  {/* Modifier Groups (Соусы) */}
-                  {selectedProduct.itemSizes[0].itemModifierGroups?.[0] && (
-                    <div className="mod-group-section">
-                      <div className="mod-group-header">
-                        <span className="mod-group-name">{t('chooseSauceTitle')}</span>
-                        <span className={`mod-badge-rule ${selectedModifier ? 'active' : ''}`}>
-                          {selectedModifier ? t('ruleBadgeComplete') : t('ruleBadgeEmpty')}
-                        </span>
-                      </div>
-
-                      <div className="modifiers-tiles-grid">
-                        {selectedProduct.itemSizes[0].itemModifierGroups[0].modifiers.map(m => {
-                          const isSelected = selectedModifier?.id === m.id;
-                          return (
-                            <div 
-                              key={m.id}
-                              className={`modifier-tile-card ${isSelected ? 'selected' : ''}`}
-                              onClick={() => setSelectedModifier(isSelected ? null : m)}
-                            >
-                              <div className="modifier-thumb-circle">
-                                🥣
-                              </div>
-                              <div className="modifier-tile-name">{m.name[lang] || m.name.en}</div>
-                              <div className="modifier-tile-price">
-                                {isSelected ? '✓' : '+0 GEL'}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
                 </div>
 
                 <div className="bottom-sheet__footer">
@@ -1529,7 +1469,7 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
               ) : (
                 <>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 18 }}>
-                    {cartEntries.map(({ item, quantity, modifier }) => {
+                    {cartEntries.filter(({ item }) => !extraIds.has(item.itemId)).map(({ item, quantity, modifier }) => {
                       const itemImg = item.itemSizes[0].buttonImage?.src || NO_PHOTO_IMAGE;
                       return (
                         <div key={item.itemId} style={{ display: 'flex', gap: 14, alignItems: 'center', paddingBottom: 14, borderBottom: '1px solid var(--border-subtle)' }}>
@@ -1554,7 +1494,7 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
                               </div>
                             )}
                             <div style={{ fontSize: 14, fontWeight: 800, marginTop: 4 }}>
-                              {item.itemSizes[0].prices[0].price * quantity} GEL
+                              {Math.round(item.itemSizes[0].prices[0].price * quantity * 100) / 100} GEL
                             </div>
                           </div>
                           <div className="product-counter-bar" style={{ width: 94, padding: '4px 8px' }}>
@@ -1571,81 +1511,65 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
                     })}
                   </div>
 
-                  <div style={{ background: '#FFF9E6', border: '1px solid #FFE082', borderRadius: 12, padding: 12, marginBottom: 16, fontSize: 13, color: '#664D03' }}>
-                    <b>🥢 {t('orderCutleryNotice')}</b> {t('chopsticksLabel')}
-                  </div>
-
-                  {/* Gift roll from GIFT_ROLL_FROM GEL */}
-                  {giftRollOptions.length > 0 && (
-                    <div style={{ background: 'linear-gradient(135deg, rgba(255, 179, 0, 0.12) 0%, rgba(255, 107, 107, 0.1) 100%)', border: '1px solid rgba(255, 179, 0, 0.3)', borderRadius: 12, padding: 12, marginBottom: 16 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: '#B45309' }}>
-                        <Gift size={16} />
-                        <span>
-                          {isGiftEligible
-                            ? (giftRoll ? t('giftChosen') : t('giftChoose'))
-                            : t('giftAddMore', { sum: Math.ceil((GIFT_ROLL_FROM - subtotal) * 100) / 100, from: GIFT_ROLL_FROM })}
-                        </span>
+                  {/* Sauces & extras: not included in the dish price, added here */}
+                  {extraItems.length > 0 && (
+                    <div style={{ background: '#FFF9E6', border: '1px solid #FFE082', borderRadius: 12, padding: 12, marginBottom: 16 }}>
+                      <div style={{ fontSize: 13, color: '#664D03', marginBottom: 10 }}>
+                        <b>🥢 {t('orderCutleryNotice')}</b> {t('extrasNotIncluded')}
                       </div>
-                      {isGiftEligible && (
-                        <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingTop: 10, paddingBottom: 2 }}>
-                          {giftRollOptions.map(item => {
-                            const isSelected = giftRoll?.itemId === item.itemId;
-                            return (
-                              <button
-                                key={item.itemId}
-                                type="button"
-                                onClick={() => setGiftItemId(isSelected ? null : item.itemId)}
-                                aria-pressed={isSelected}
-                                style={{
-                                  flex: '0 0 96px',
-                                  border: `2px solid ${isSelected ? 'var(--color-primary)' : 'var(--border-subtle)'}`,
-                                  borderRadius: 10,
-                                  background: '#FFFFFF',
-                                  padding: 6,
-                                  cursor: 'pointer',
-                                  textAlign: 'left',
-                                  position: 'relative'
-                                }}
-                              >
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                  src={item.itemSizes[0].buttonImage?.src || NO_PHOTO_IMAGE}
-                                  alt=""
-                                  style={{ width: '100%', height: 60, objectFit: 'cover', borderRadius: 6, display: 'block' }}
-                                />
-                                <div style={{ fontSize: 11, fontWeight: 600, marginTop: 4, lineHeight: 1.25, color: 'var(--text-main)' }}>
-                                  {item.name[lang] || item.name.en}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {extraItems.map(item => {
+                          const quantity = cart[item.itemId]?.quantity || 0;
+                          const price = item.itemSizes[0].prices[0].price;
+                          return (
+                            <div key={item.itemId} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
+                              <span style={{ flexGrow: 1, color: 'var(--text-main)', fontWeight: 600, textTransform: 'capitalize' }}>
+                                {(item.name[lang] || item.name.en).trim()}
+                              </span>
+                              <span style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{price} GEL</span>
+                              {quantity === 0 ? (
+                                <button
+                                  type="button"
+                                  className="counter-action-btn"
+                                  onClick={() => addToCart(item)}
+                                  aria-label={`${t('addToCart')}: ${item.name[lang] || item.name.en}`}
+                                  style={{ width: 94, justifyContent: 'center', border: '1px solid var(--color-primary)', borderRadius: 999, padding: '5px 8px', color: 'var(--color-primary)', background: '#FFFFFF' }}
+                                >
+                                  <Plus size={13} />
+                                </button>
+                              ) : (
+                                <div className="product-counter-bar" style={{ width: 94, padding: '4px 8px' }}>
+                                  <button className="counter-action-btn" onClick={() => handleUpdateQty(item.itemId, -1)} aria-label="−">
+                                    <Minus size={13} />
+                                  </button>
+                                  <span style={{ fontSize: 13 }}>{quantity}</span>
+                                  <button className="counter-action-btn" onClick={() => handleUpdateQty(item.itemId, 1)} aria-label="+">
+                                    <Plus size={13} />
+                                  </button>
                                 </div>
-                                {isSelected && (
-                                  <span style={{ position: 'absolute', top: 4, right: 4, background: 'var(--color-primary)', color: '#fff', borderRadius: '50%', width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Check size={13} />
-                                  </span>
-                                )}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
+
+                  {/* Gift roll from GIFT_ROLL_FROM GEL: the restaurant picks it */}
+                  <div style={{ background: 'linear-gradient(135deg, rgba(255, 179, 0, 0.12) 0%, rgba(255, 107, 107, 0.1) 100%)', border: '1px solid rgba(255, 179, 0, 0.3)', borderRadius: 12, padding: 12, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: '#B45309' }}>
+                    <Gift size={16} style={{ flexShrink: 0 }} />
+                    <span>
+                      {isGiftEligible
+                        ? t('giftIncluded')
+                        : t('giftAddMore', { sum: Math.ceil((GIFT_ROLL_FROM - subtotal) * 100) / 100, from: GIFT_ROLL_FROM })}
+                    </span>
+                  </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 14 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
                       <span>{t('subtotal')}</span>
                       <span>{subtotal} GEL</span>
                     </div>
-                    {giftRoll && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
-                        <span>🎁 {giftRoll.name[lang] || giftRoll.name.en}</span>
-                        <span>0 GEL</span>
-                      </div>
-                    )}
-                    {birthdayDiscount > 0 && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-primary)', fontWeight: 600 }}>
-                        <span>🎂 {t('birthdayDiscountLine', { p: BIRTHDAY_DISCOUNT_PERCENT })}</span>
-                        <span>−{birthdayDiscount} GEL</span>
-                      </div>
-                    )}
                     {deliveryMode === 'delivery' && (
                       <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
                         <span>{t('deliveryFee')}</span>
@@ -1654,7 +1578,7 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
                     )}
                     <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', fontSize: 12 }}>
                       <span>{t('taxIncluded')}</span>
-                      <span>{((subtotal - birthdayDiscount) * 0.18).toFixed(1)} GEL</span>
+                      <span>{(subtotal * 0.18).toFixed(1)} GEL</span>
                     </div>
                   </div>
                 </>
@@ -2195,26 +2119,6 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
                       </div>
                     )}
 
-                    {/* Birthday discount: date of birth, checked against a document on pickup */}
-                    <div>
-                      <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>
-                        🎂 {t('birthDateLabel', { p: BIRTHDAY_DISCOUNT_PERCENT })}
-                      </label>
-                      <input
-                        type="date"
-                        value={birthDate}
-                        max={new Date().toISOString().slice(0, 10)}
-                        onChange={e => setBirthDate(e.target.value)}
-                        style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border-strong)', fontSize: 14, background: '#FFFFFF' }}
-                      />
-                      <div style={{ fontSize: 12, marginTop: 5, color: birthdayDiscount > 0 ? 'var(--color-primary)' : 'var(--text-muted)', fontWeight: birthdayDiscount > 0 ? 700 : 400 }}>
-                        {birthdayDiscount > 0
-                          ? t('birthDateApplied', { p: BIRTHDAY_DISCOUNT_PERCENT, sum: birthdayDiscount })
-                          : birthDate && !isBirthdayWindow(birthDate)
-                            ? t('birthDateNotToday', { d: BIRTHDAY_DAYS_AFTER })
-                            : t('birthDateHint', { d: BIRTHDAY_DAYS_AFTER })}
-                      </div>
-                    </div>
                   </div>
 
                   {/* Bank Payment Options */}
@@ -2223,21 +2127,30 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
                     
                     {/* Card */}
                     <div 
-                      onClick={() => setPaymentMethod('card_online')}
+                      onClick={() => CARD_PAYMENT_ENABLED && setPaymentMethod('card_online')}
+                      aria-disabled={!CARD_PAYMENT_ENABLED}
                       style={{
+                        opacity: CARD_PAYMENT_ENABLED ? 1 : 0.55,
                         border: `2px solid ${paymentMethod === 'card_online' ? 'var(--color-primary)' : 'var(--border-subtle)'}`,
                         borderRadius: 12,
                         padding: 12,
                         display: 'flex',
                         alignItems: 'center',
                         gap: 12,
-                        cursor: 'pointer',
+                        cursor: CARD_PAYMENT_ENABLED ? 'pointer' : 'not-allowed',
                         background: paymentMethod === 'card_online' ? 'var(--color-primary-subtle)' : '#fff'
                       }}
                     >
                       <CreditCard size={24} color="var(--color-primary)" />
                       <div style={{ flexGrow: 1 }}>
-                        <div style={{ fontSize: 14, fontWeight: 700 }}>{t('payCard')}</div>
+                        <div style={{ fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+                          {t('payCard')}
+                          {!CARD_PAYMENT_ENABLED && (
+                            <span style={{ fontSize: 11, fontWeight: 700, color: '#B45309', background: '#FFF3CD', borderRadius: 6, padding: '2px 6px' }}>
+                              {t('comingSoon')}
+                            </span>
+                          )}
+                        </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
                           <PaymentBadges />
                         </div>
@@ -2263,7 +2176,7 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
                       <div style={{ flexGrow: 1 }}>
                         <div style={{ fontSize: 14, fontWeight: 700 }}>{t('payCash')}</div>
                         <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                          {lang === 'ru' ? 'Оплата наличными при получении заказа' : lang === 'ka' ? 'ნაღდი ანგარიშსწორება მიღებისას' : 'Pay in cash on receipt'}
+                          {lang === 'ru' ? 'Оплата при получении заказа' : lang === 'ka' ? 'ანგარიშსწორება მიღებისას' : 'Pay on pickup'}
                         </div>
                       </div>
                       {paymentMethod === 'cash' && <Check size={18} color="var(--color-primary)" />}
@@ -2323,7 +2236,7 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                 <span style={{ color: 'var(--text-muted)' }}>Статус оплаты:</span>
                 <span style={{ color: 'var(--system-green)', fontWeight: 700 }}>
-                  {confirmedOrder.paymentStatus === 'paid' ? 'Оплачено картой ✓' : 'Наличными при получении'}
+                  {confirmedOrder.paymentStatus === 'paid' ? 'Оплачено картой ✓' : 'Оплата при получении'}
                 </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -2490,7 +2403,7 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
           <div>
             <div className="drawer-section-title">{t('catalogCategories')}</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
-              {categories.map(cat => {
+              {menuCategories.map(cat => {
                 const isActive = activeCategory === cat.slug;
                 return (
                   <button
