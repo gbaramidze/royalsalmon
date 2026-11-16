@@ -86,6 +86,41 @@ export async function sendTelegramMessage(chatId: string | number, text: string,
   }
 }
 
+/** Inline button that opens the storefront as a Telegram Mini App */
+export function orderWebAppKeyboard() {
+  return {
+    inline_keyboard: [[{ text: '🍣 Открыть меню и заказать', web_app: { url: SITE_URL } }]]
+  };
+}
+
+let menuButtonReady = false;
+
+/**
+ * Put an "Order" Mini App button next to the bot's message field (for every chat).
+ * Runs once per server process; safe to call often.
+ * Production only, so a dev server with a temporary tunnel URL never repoints the live bot.
+ */
+export async function ensureBotMenuButton(): Promise<void> {
+  if (menuButtonReady || !TELEGRAM_BOT_TOKEN || process.env.NODE_ENV !== 'production') return;
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setChatMenuButton`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        menu_button: { type: 'web_app', text: '🍣 Заказать', web_app: { url: SITE_URL } }
+      })
+    });
+    const data = await res.json();
+    if (data?.ok) {
+      menuButtonReady = true;
+    } else {
+      console.error('Telegram setChatMenuButton failed:', data);
+    }
+  } catch (error) {
+    console.error('Telegram setChatMenuButton error:', error);
+  }
+}
+
 /**
  * Send a photo via Telegram Bot API
  */
@@ -109,6 +144,7 @@ export async function sendTelegramPhoto(chatId: string | number, photo: Buffer, 
  */
 export async function syncBotUpdates(): Promise<void> {
   const db = getSupabase();
+  await ensureBotMenuButton();
 
   try {
     const state = check(
@@ -187,14 +223,19 @@ export async function syncBotUpdates(): Promise<void> {
             `Ваш код верификации: <b>${session.code}</b>\n\n` +
             `Введите его на сайте для завершения оформления заказа.`
           );
-        } else if (isNewChat) {
-          // Welcome only the first time this chat talks to the bot
+        } else {
           await sendTelegramMessage(chatId,
             `👑 <b>Royal Salmon Bot</b>\n\n` +
-            `Здравствуйте, ${firstName}! Ваш Telegram успешно подключен.\n` +
-            `Теперь вы можете получать коды верификации для заказов в Royal Salmon прямо сюда.`
+            (isNewChat
+              ? `Здравствуйте, ${firstName}! Ваш Telegram успешно подключен.\n` +
+                `Сюда будут приходить коды верификации и статус ваших заказов.\n\n`
+              : `Здравствуйте, ${firstName}!\n\n`) +
+            `Закажите прямо в Telegram — нажмите кнопку ниже 👇`,
+            orderWebAppKeyboard()
           );
         }
+      } else if (text === '/menu' || text === '/order') {
+        await sendTelegramMessage(chatId, `🍣 <b>Меню Royal Salmon</b>\n\nОткройте меню и оформите заказ:`, orderWebAppKeyboard());
       }
     }
 
@@ -370,6 +411,7 @@ export interface OrderNotificationData {
   }>;
   subtotal: number;
   deliveryFee: number;
+  discount?: number;
   tax: number;
   total: number;
   paymentMethod: string;
@@ -415,7 +457,10 @@ export async function sendOrderNotification(order: OrderNotificationData) {
     `Телефон: <code>${order.customerPhone}</code>\n\n` +
     `🍣 <b>Состав заказа:</b>\n${itemsList}\n\n` +
     `💰 <b>Сумма блюд:</b> ${order.subtotal.toFixed(2)} GEL\n` +
-    (order.deliveryFee > 0 ? `📦 <b>Доставка:</b> ${order.deliveryFee.toFixed(2)} GEL\n` : `📦 <b>Доставка:</b> Бесплатно\n`) +
+    (order.discount ? `🎂 <b>Скидка ко дню рождения:</b> −${order.discount.toFixed(2)} GEL\n` : '') +
+    (order.deliveryType === 'delivery'
+      ? (order.deliveryFee > 0 ? `📦 <b>Доставка:</b> ${order.deliveryFee.toFixed(2)} GEL\n` : `📦 <b>Доставка:</b> Бесплатно\n`)
+      : '') +
     `🧾 <b>ИТОГО К ОПЛАТЕ:</b> <b>${order.total.toFixed(2)} GEL</b>\n\n` +
     `${deliveryText}\n` +
     `💳 <b>Способ оплаты:</b> ${paymentMethodLabel} (${order.paymentStatus === 'paid' ? 'Оплачено ✅' : 'Ожидает оплаты ⏳'})\n` +

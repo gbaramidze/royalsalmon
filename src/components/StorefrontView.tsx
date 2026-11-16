@@ -26,8 +26,23 @@ import {
   ArrowRight,
   ChevronRight,
   Navigation,
-  Home
+  Home,
+  Gift
 } from 'lucide-react';
+import Script from 'next/script';
+import {
+  DELIVERY_ENABLED,
+  FREE_DELIVERY_FROM,
+  DELIVERY_FEE,
+  GIFT_ROLL_FROM,
+  GIFT_ROLL_MAX_PRICE,
+  BIRTHDAY_DISCOUNT_PERCENT,
+  BIRTHDAY_DAYS_AFTER,
+  getDeliveryFee,
+  getBirthdayDiscount,
+  isBirthdayWindow,
+  isRollCategory,
+} from '@/lib/promos';
 import { RoyalSalmonLogo } from '@/components/RoyalSalmonLogo';
 import { PaymentBadges, VisaLogo, MastercardLogo } from '@/components/PaymentLogos';
 import AddressMapPicker from '@/components/AddressMapPicker';
@@ -38,7 +53,7 @@ interface StorefrontViewProps {
 
 export default function StorefrontView({ initialCategories }: StorefrontViewProps) {
   const [lang, setLang] = useState<Language>('ru');
-  const [deliveryMode, setDeliveryMode] = useState<'delivery' | 'pickup'>('delivery');
+  const [deliveryMode, setDeliveryMode] = useState<'delivery' | 'pickup'>(DELIVERY_ENABLED ? 'delivery' : 'pickup');
   const [address, setAddress] = useState<string>('Батуми, ул. Джавахишвили, 9');
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [tempAddress, setTempAddress] = useState(address);
@@ -85,6 +100,9 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('card_online');
   const [isPaying, setIsPaying] = useState(false);
   const [confirmedOrder, setConfirmedOrder] = useState<Order | null>(null);
+  // Promotions: birthday discount and the gift roll picked by the customer
+  const [birthDate, setBirthDate] = useState('');
+  const [giftItemId, setGiftItemId] = useState<string | null>(null);
 
   // Verification State (SMS / Telegram)
   const [verificationMethod, setVerificationMethod] = useState<'telegram' | 'sms'>('sms');
@@ -106,7 +124,7 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
 
   // Drawer Menu & Info Modals
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [activeInfoModal, setActiveInfoModal] = useState<'bonuses' | 'promos' | 'delivery' | 'faq' | 'contacts' | null>(null);
+  const [activeInfoModal, setActiveInfoModal] = useState<'promos' | 'delivery' | 'faq' | 'contacts' | null>(null);
 
   // Category refs for scrollspy
   const categoryNavRef = useRef<HTMLDivElement>(null);
@@ -169,6 +187,7 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
       if (p.floor) setFloor(p.floor);
       if (p.intercom) setIntercom(p.intercom);
       if (p.paymentMethod === 'card_online' || p.paymentMethod === 'cash') setPaymentMethod(p.paymentMethod);
+      if (typeof p.birthDate === 'string') setBirthDate(p.birthDate);
     } catch (err) {
       console.warn('Failed to restore customer profile:', err);
     }
@@ -527,8 +546,24 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
   const cartEntries = Object.values(cart);
   const cartItemsCount = cartEntries.reduce((acc, c) => acc + c.quantity, 0);
   const subtotal = cartEntries.reduce((acc, c) => acc + c.quantity * c.item.itemSizes[0].prices[0].price, 0);
-  const deliveryFee = deliveryMode === 'delivery' && subtotal < 100 && subtotal > 0 ? 5 : 0;
-  const total = subtotal + deliveryFee;
+  const deliveryFee = getDeliveryFee(deliveryMode, subtotal);
+  const birthdayDiscount = getBirthdayDiscount(subtotal, birthDate);
+  const total = Math.round((subtotal - birthdayDiscount + deliveryFee) * 100) / 100;
+
+  // Gift roll: any roll from the roll categories, cheapest first
+  const giftRollOptions = useMemo(
+    () =>
+      categories
+        .filter(isRollCategory)
+        .flatMap(cat => cat.items)
+        .filter(item => !item.isHidden)
+        .filter((item, index, all) => all.findIndex(other => other.itemId === item.itemId) === index)
+        .filter(item => GIFT_ROLL_MAX_PRICE === null || item.itemSizes[0].prices[0].price <= GIFT_ROLL_MAX_PRICE)
+        .sort((a, b) => a.itemSizes[0].prices[0].price - b.itemSizes[0].prices[0].price),
+    [categories]
+  );
+  const isGiftEligible = subtotal >= GIFT_ROLL_FROM;
+  const giftRoll = isGiftEligible ? giftRollOptions.find(item => item.itemId === giftItemId) || null : null;
 
   const handleOpenProduct = (item: MenuItem) => {
     setSelectedProduct(item);
@@ -767,16 +802,28 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
           quantity: c.quantity,
           price: c.item.itemSizes[0].prices[0].price,
           modifiersDescription: c.modifier ? (c.modifier.name[lang] || c.modifier.name.en) : undefined
-        })),
+        })).concat(giftRoll ? [{
+          itemId: giftRoll.itemId,
+          name: `🎁 ${giftRoll.name[lang] || giftRoll.name.en} (${lang === 'ru' ? 'подарок' : lang === 'ka' ? 'საჩუქარი' : 'gift'})`,
+          quantity: 1,
+          price: 0,
+          modifiersDescription: undefined
+        }] : []),
         subtotal,
         deliveryFee,
-        tax: Number((subtotal * 0.18).toFixed(1)),
+        discount: birthdayDiscount || undefined,
+        tax: Number(((subtotal - birthdayDiscount) * 0.18).toFixed(1)),
         total,
         status: 'new',
         paymentMethod,
         paymentStatus: paymentMethod === 'cash' ? 'pending' : 'paid',
         createdAt: new Date().toISOString(),
-        notes: customerComment
+        notes: [
+          customerComment.trim(),
+          birthdayDiscount > 0
+            ? `🎂 Скидка ко дню рождения ${BIRTHDAY_DISCOUNT_PERCENT}% (−${birthdayDiscount} GEL), дата рождения ${birthDate.split('-').reverse().join('.')} — проверить документ`
+            : '',
+        ].filter(Boolean).join('\n')
       };
 
       if (typeof window !== 'undefined') {
@@ -793,6 +840,7 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
             phone: customerPhone.trim(),
             verificationMethod,
             paymentMethod,
+            birthDate,
             // Pickup orders keep the previously saved delivery address
             ...(isDelivery ? {
               deliveryAddress: deliveryAddress.trim(),
@@ -821,12 +869,27 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
       setIsCheckoutOpen(false);
       setIsCartOpen(false);
       setCart({});
+      setGiftItemId(null);
       setConfirmedOrder(newOrder);
     }, 1100);
   };
 
   return (
     <div className="app-viewport-shell">
+      {/* Opened from the bot as a Telegram Mini App: tell Telegram we're ready and use the full height */}
+      <Script
+        src="https://telegram.org/js/telegram-web-app.js"
+        strategy="afterInteractive"
+        onLoad={() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const webApp = (window as any).Telegram?.WebApp;
+          if (!webApp?.initData) return;
+          webApp.ready();
+          webApp.expand();
+          const tgName = webApp.initDataUnsafe?.user?.first_name;
+          if (tgName) setCustomerName(prev => prev || tgName);
+        }}
+      />
 
       {/* 1. Announcement Banner */}
       {announcementVisible && (
@@ -944,7 +1007,10 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
           <div className="delivery-tabs-container">
             <button 
               className={`delivery-tab-btn ${deliveryMode === 'delivery' ? 'active' : ''}`}
-              onClick={() => setDeliveryMode('delivery')}
+              onClick={() => DELIVERY_ENABLED && setDeliveryMode('delivery')}
+              disabled={!DELIVERY_ENABLED}
+              title={DELIVERY_ENABLED ? undefined : t('deliveryPaused')}
+              style={DELIVERY_ENABLED ? undefined : { opacity: 0.45, cursor: 'not-allowed' }}
             >
               {t('delivery')}
             </button>
@@ -956,14 +1022,20 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
             </button>
           </div>
 
-          <div className="location-bar" onClick={() => setIsAddressModalOpen(true)}>
+          <div className="location-bar" onClick={() => deliveryMode === 'delivery' && setIsAddressModalOpen(true)}>
             <div className="location-bar__text">
               <MapPin size={16} color="var(--color-primary)" />
               <span>{deliveryMode === 'delivery' ? address : t('pickupAddress')}</span>
             </div>
-            <button className="location-bar__btn">{t('change')}</button>
+            {deliveryMode === 'delivery' && <button className="location-bar__btn">{t('change')}</button>}
           </div>
         </div>
+
+        {!DELIVERY_ENABLED && (
+          <div style={{ background: '#FFF9E6', border: '1px solid #FFE082', borderRadius: 12, padding: '10px 12px', margin: '10px 0 0', fontSize: 13, color: '#664D03' }}>
+            🏬 {t('deliveryPausedNotice')}
+          </div>
+        )}
 
         {/* 4. Promo Banner */}
         <div className="promo-slider">
@@ -1444,18 +1516,86 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
                     <b>🥢 {t('orderCutleryNotice')}</b> {t('chopsticksLabel')}
                   </div>
 
+                  {/* Gift roll from GIFT_ROLL_FROM GEL */}
+                  {giftRollOptions.length > 0 && (
+                    <div style={{ background: 'linear-gradient(135deg, rgba(255, 179, 0, 0.12) 0%, rgba(255, 107, 107, 0.1) 100%)', border: '1px solid rgba(255, 179, 0, 0.3)', borderRadius: 12, padding: 12, marginBottom: 16 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: '#B45309' }}>
+                        <Gift size={16} />
+                        <span>
+                          {isGiftEligible
+                            ? (giftRoll ? t('giftChosen') : t('giftChoose'))
+                            : t('giftAddMore', { sum: Math.ceil((GIFT_ROLL_FROM - subtotal) * 100) / 100, from: GIFT_ROLL_FROM })}
+                        </span>
+                      </div>
+                      {isGiftEligible && (
+                        <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingTop: 10, paddingBottom: 2 }}>
+                          {giftRollOptions.map(item => {
+                            const isSelected = giftRoll?.itemId === item.itemId;
+                            return (
+                              <button
+                                key={item.itemId}
+                                type="button"
+                                onClick={() => setGiftItemId(isSelected ? null : item.itemId)}
+                                aria-pressed={isSelected}
+                                style={{
+                                  flex: '0 0 96px',
+                                  border: `2px solid ${isSelected ? 'var(--color-primary)' : 'var(--border-subtle)'}`,
+                                  borderRadius: 10,
+                                  background: '#FFFFFF',
+                                  padding: 6,
+                                  cursor: 'pointer',
+                                  textAlign: 'left',
+                                  position: 'relative'
+                                }}
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={item.itemSizes[0].buttonImage?.src || NO_PHOTO_IMAGE}
+                                  alt=""
+                                  style={{ width: '100%', height: 60, objectFit: 'cover', borderRadius: 6, display: 'block' }}
+                                />
+                                <div style={{ fontSize: 11, fontWeight: 600, marginTop: 4, lineHeight: 1.25, color: 'var(--text-main)' }}>
+                                  {item.name[lang] || item.name.en}
+                                </div>
+                                {isSelected && (
+                                  <span style={{ position: 'absolute', top: 4, right: 4, background: 'var(--color-primary)', color: '#fff', borderRadius: '50%', width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Check size={13} />
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 14 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
                       <span>{t('subtotal')}</span>
                       <span>{subtotal} GEL</span>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
-                      <span>{t('deliveryFee')}</span>
-                      <span>{deliveryFee === 0 ? t('freeDeliveryBadge') : `${deliveryFee} GEL`}</span>
-                    </div>
+                    {giftRoll && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
+                        <span>🎁 {giftRoll.name[lang] || giftRoll.name.en}</span>
+                        <span>0 GEL</span>
+                      </div>
+                    )}
+                    {birthdayDiscount > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--color-primary)', fontWeight: 600 }}>
+                        <span>🎂 {t('birthdayDiscountLine', { p: BIRTHDAY_DISCOUNT_PERCENT })}</span>
+                        <span>−{birthdayDiscount} GEL</span>
+                      </div>
+                    )}
+                    {deliveryMode === 'delivery' && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
+                        <span>{t('deliveryFee')}</span>
+                        <span>{deliveryFee === 0 ? t('freeDeliveryBadge') : `${deliveryFee} GEL`}</span>
+                      </div>
+                    )}
                     <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', fontSize: 12 }}>
                       <span>{t('taxIncluded')}</span>
-                      <span>{(subtotal * 0.18).toFixed(1)} GEL</span>
+                      <span>{((subtotal - birthdayDiscount) * 0.18).toFixed(1)} GEL</span>
                     </div>
                   </div>
                 </>
@@ -1813,8 +1953,11 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                         <button
                           type="button"
-                          onClick={() => setDeliveryMode('delivery')}
+                          onClick={() => DELIVERY_ENABLED && setDeliveryMode('delivery')}
+                          disabled={!DELIVERY_ENABLED}
+                          title={DELIVERY_ENABLED ? undefined : t('deliveryPaused')}
                           style={{
+                            opacity: DELIVERY_ENABLED ? 1 : 0.45,
                             padding: '10px 12px',
                             borderRadius: 10,
                             border: `1.5px solid ${deliveryMode === 'delivery' ? 'var(--color-primary)' : 'var(--border-subtle)'}`,
@@ -1822,7 +1965,7 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
                             color: deliveryMode === 'delivery' ? 'var(--color-primary)' : 'var(--text-secondary)',
                             fontWeight: 700,
                             fontSize: 13,
-                            cursor: 'pointer',
+                            cursor: DELIVERY_ENABLED ? 'pointer' : 'not-allowed',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -1966,6 +2109,27 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
                         </div>
                       </div>
                     )}
+
+                    {/* Birthday discount: date of birth, checked against a document on pickup */}
+                    <div>
+                      <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>
+                        🎂 {t('birthDateLabel', { p: BIRTHDAY_DISCOUNT_PERCENT })}
+                      </label>
+                      <input
+                        type="date"
+                        value={birthDate}
+                        max={new Date().toISOString().slice(0, 10)}
+                        onChange={e => setBirthDate(e.target.value)}
+                        style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border-strong)', fontSize: 14, background: '#FFFFFF' }}
+                      />
+                      <div style={{ fontSize: 12, marginTop: 5, color: birthdayDiscount > 0 ? 'var(--color-primary)' : 'var(--text-muted)', fontWeight: birthdayDiscount > 0 ? 700 : 400 }}>
+                        {birthdayDiscount > 0
+                          ? t('birthDateApplied', { p: BIRTHDAY_DISCOUNT_PERCENT, sum: birthdayDiscount })
+                          : birthDate && !isBirthdayWindow(birthDate)
+                            ? t('birthDateNotToday', { d: BIRTHDAY_DAYS_AFTER })
+                            : t('birthDateHint', { d: BIRTHDAY_DAYS_AFTER })}
+                      </div>
+                    </div>
                   </div>
 
                   {/* Bank Payment Options */}
@@ -2268,20 +2432,6 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
                 className="drawer-link" 
                 onClick={() => {
                   setIsDrawerOpen(false);
-                  setActiveInfoModal('bonuses');
-                }}
-              >
-                <div className="drawer-link-left">
-                  <span className="drawer-link-icon">🎁</span>
-                  <span>{t('bonuses')}</span>
-                </div>
-                <span style={{ fontSize: 13, color: 'var(--color-primary)' }}>➔</span>
-              </button>
-
-              <button 
-                className="drawer-link" 
-                onClick={() => {
-                  setIsDrawerOpen(false);
                   setActiveInfoModal('promos');
                 }}
               >
@@ -2401,14 +2551,12 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
             <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ fontSize: 22 }}>
-                  {activeInfoModal === 'bonuses' && '🎁'}
                   {activeInfoModal === 'promos' && '🔥'}
                   {activeInfoModal === 'delivery' && '🚚'}
                   {activeInfoModal === 'faq' && '❓'}
                   {activeInfoModal === 'contacts' && '📞'}
                 </span>
                 <h3 style={{ fontSize: 17, fontWeight: 800 }}>
-                  {activeInfoModal === 'bonuses' && t('bonuses')}
                   {activeInfoModal === 'promos' && t('promos')}
                   {activeInfoModal === 'delivery' && t('delivTerms')}
                   {activeInfoModal === 'faq' && t('faq')}
@@ -2421,24 +2569,6 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
             </div>
 
             <div style={{ padding: '20px', overflowY: 'auto', maxHeight: '70vh', fontSize: 14, lineHeight: 1.6, color: 'var(--text-main)' }}>
-              {activeInfoModal === 'bonuses' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                  <div style={{ background: 'var(--bg-muted)', padding: 14, borderRadius: 12, border: '1px solid var(--border-subtle)' }}>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-primary)', marginBottom: 4 }}>
-                      {lang === 'ru' ? 'Кэшбэк до 10% на каждый заказ' : lang === 'ka' ? 'ქეშბექი 10%-მდე თითოეულ შეკვეთაზე' : 'Up to 10% Cashback on Every Order'}
-                    </div>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>
-                      {t('bonusesDesc')}
-                    </p>
-                  </div>
-                  <ul style={{ paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <li><b>1 бонус = 1 GEL</b> скидки на следующий заказ.</li>
-                    <li>Бонусы начисляются автоматически по номеру телефона при подтверждении заказа.</li>
-                    <li>Оплачивайте до 50% суммы чека накопленными баллами.</li>
-                  </ul>
-                </div>
-              )}
-
               {activeInfoModal === 'promos' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                   <div style={{ background: 'linear-gradient(135deg, rgba(255, 179, 0, 0.12) 0%, rgba(255, 107, 107, 0.1) 100%)', padding: 16, borderRadius: 12, border: '1px solid rgba(255, 179, 0, 0.3)' }}>
@@ -2450,8 +2580,14 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
                     </p>
                   </div>
                   <div style={{ background: 'var(--bg-muted)', padding: 14, borderRadius: 12, border: '1px solid var(--border-subtle)' }}>
-                    <div style={{ fontWeight: 700, marginBottom: 4 }}>🎂 Скидка 15% ко дню рождения</div>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Действует в день рождения и 3 дня после него при оформлении доставки или самовывоза.</p>
+                    <div style={{ fontWeight: 700, marginBottom: 4 }}>🎂 {t('birthdayPromoTitle', { p: BIRTHDAY_DISCOUNT_PERCENT })}</div>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{t('birthdayPromoDesc', { d: BIRTHDAY_DAYS_AFTER })}</p>
+                  </div>
+                  <div style={{ background: 'var(--bg-muted)', padding: 14, borderRadius: 12, border: '1px solid var(--border-subtle)' }}>
+                    <div style={{ fontWeight: 700, marginBottom: 4 }}>🚚 {t('freeDeliveryPromoTitle', { from: FREE_DELIVERY_FROM })}</div>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>
+                      {DELIVERY_ENABLED ? t('deliveryDesc', { from: FREE_DELIVERY_FROM, fee: DELIVERY_FEE }) : t('deliveryPausedNotice')}
+                    </p>
                   </div>
                 </div>
               )}
@@ -2460,16 +2596,16 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                   <div style={{ background: 'var(--color-primary-subtle)', padding: 14, borderRadius: 12, border: '1px solid rgba(51, 190, 191, 0.3)' }}>
                     <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--color-primary)', marginBottom: 4 }}>
-                      🚚 {lang === 'ru' ? 'Бесплатная доставка от 100 GEL' : lang === 'ka' ? 'უფასო მიტანა 100 GEL-დან' : 'Free Delivery from 100 GEL'}
+                      🚚 {t('freeDeliveryPromoTitle', { from: FREE_DELIVERY_FROM })}
                     </div>
                     <p style={{ fontSize: 13, color: 'var(--text-main)' }}>
-                      {t('deliveryDesc')}
+                      {DELIVERY_ENABLED ? t('deliveryDesc', { from: FREE_DELIVERY_FROM, fee: DELIVERY_FEE }) : t('deliveryPausedNotice')}
                     </p>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13 }}>
                     <div>📍 <b>Зона доставки:</b> Батуми и прилегающие районы.</div>
                     <div>⏱️ <b>Время доставки:</b> 35 – 50 минут с момента подтверждения.</div>
-                    <div>💵 <b>Стоимость доставки:</b> 5 GEL (при заказе менее 100 GEL).</div>
+                    <div>💵 <b>Стоимость доставки:</b> {DELIVERY_FEE} GEL (при заказе менее {FREE_DELIVERY_FROM} GEL).</div>
                     <div>🍱 <b>Упаковка:</b> Премиальные герметичные боксы с сохранением свежести.</div>
                   </div>
                 </div>

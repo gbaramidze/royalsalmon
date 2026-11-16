@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sendOrderNotification } from '@/lib/telegram';
 import { saveOrder } from '@/lib/orders';
+import { DELIVERY_ENABLED } from '@/lib/promos';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +13,13 @@ export async function POST(req: Request) {
       return NextResponse.json({
         success: false,
         error: 'Order data is missing required fields'
+      }, { status: 400 });
+    }
+
+    if (!DELIVERY_ENABLED && orderData.deliveryType === 'delivery') {
+      return NextResponse.json({
+        success: false,
+        error: 'Доставка временно недоступна, доступен только самовывоз'
       }, { status: 400 });
     }
 

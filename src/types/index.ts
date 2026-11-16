@@ -135,6 +135,8 @@ export interface Order {
   }>;
   subtotal: number;
   deliveryFee: number;
+  /** Birthday discount in GEL, already taken off `total` */
+  discount?: number;
   tax: number;
   total: number;
   status: OrderStatus;
