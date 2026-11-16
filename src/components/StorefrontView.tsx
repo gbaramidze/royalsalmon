@@ -45,6 +45,23 @@ import { RoyalSalmonLogo } from '@/components/RoyalSalmonLogo';
 import { PaymentBadges, VisaLogo, MastercardLogo } from '@/components/PaymentLogos';
 import AddressMapPicker from '@/components/AddressMapPicker';
 
+/** Cart extras shown first, in this order; everything else follows */
+const EXTRAS_FIRST = [/chopstick|палоч/i, /ginger|имбир/i, /wasabi|васаби/i, /soy|соев/i];
+const extraPriority = (item: MenuItem) => {
+  const name = `${item.name.en} ${item.name.ru}`;
+  const index = EXTRAS_FIRST.findIndex(pattern => pattern.test(name));
+  return index === -1 ? EXTRAS_FIRST.length : index;
+};
+
+/** Our own picture for extras that have no photo in RestIQ */
+const EXTRAS_FALLBACK_IMAGES: Array<[RegExp, string]> = [[/wasabi|васаби/i, '/images/extras/wasabi.svg']];
+const extraImage = (item: MenuItem) => {
+  const src = item.itemSizes[0].buttonImage?.src;
+  if (src && src !== NO_PHOTO_IMAGE) return src;
+  const name = `${item.name.en} ${item.name.ru}`;
+  return EXTRAS_FALLBACK_IMAGES.find(([pattern]) => pattern.test(name))?.[1] || NO_PHOTO_IMAGE;
+};
+
 interface StorefrontViewProps {
   initialCategories: ItemCategory[];
 }
@@ -292,7 +309,9 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
         .flatMap(cat => cat.items)
         .filter(item => !item.isHidden)
         // The menu lists some extras twice
-        .filter((item, index, all) => all.findIndex(other => other.itemId === item.itemId) === index),
+        .filter((item, index, all) => all.findIndex(other => other.itemId === item.itemId) === index)
+        // Chopsticks, ginger, wasabi, soy sauce first, then the sauces in menu order (sort is stable)
+        .sort((a, b) => extraPriority(a) - extraPriority(b)),
     [categories]
   );
   const extraIds = useMemo(() => new Set(extraItems.map(item => item.itemId)), [extraItems]);
@@ -1517,28 +1536,51 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
                       <div style={{ fontSize: 13, color: '#664D03', marginBottom: 10 }}>
                         <b>🥢 {t('orderCutleryNotice')}</b> {t('extrasNotIncluded')}
                       </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {/* Horizontal strip of cards; scrolls sideways */}
+                      <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, margin: '0 -12px', paddingLeft: 12, paddingRight: 12, scrollSnapType: 'x proximity', WebkitOverflowScrolling: 'touch' }}>
                         {extraItems.map(item => {
                           const quantity = cart[item.itemId]?.quantity || 0;
                           const price = item.itemSizes[0].prices[0].price;
+                          const name = (item.name[lang] || item.name.en).trim();
                           return (
-                            <div key={item.itemId} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
-                              <span style={{ flexGrow: 1, color: 'var(--text-main)', fontWeight: 600, textTransform: 'capitalize' }}>
-                                {(item.name[lang] || item.name.en).trim()}
-                              </span>
-                              <span style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{price} GEL</span>
+                            <div
+                              key={item.itemId}
+                              style={{
+                                flex: '0 0 104px',
+                                scrollSnapAlign: 'start',
+                                background: '#FFFFFF',
+                                border: `1.5px solid ${quantity > 0 ? 'var(--color-primary)' : 'var(--border-subtle)'}`,
+                                borderRadius: 12,
+                                padding: 6,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: 4
+                              }}
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={extraImage(item)}
+                                alt=""
+                                loading="lazy"
+                                decoding="async"
+                                style={{ width: '100%', height: 64, objectFit: 'cover', borderRadius: 8, display: 'block', background: '#F8FAFC' }}
+                              />
+                              <div style={{ fontSize: 12, fontWeight: 600, lineHeight: 1.25, color: 'var(--text-main)', textTransform: 'capitalize', minHeight: 30 }}>
+                                {name}
+                              </div>
+                              <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{price} GEL</div>
                               {quantity === 0 ? (
                                 <button
                                   type="button"
                                   className="counter-action-btn"
                                   onClick={() => addToCart(item)}
-                                  aria-label={`${t('addToCart')}: ${item.name[lang] || item.name.en}`}
-                                  style={{ width: 94, justifyContent: 'center', border: '1px solid var(--color-primary)', borderRadius: 999, padding: '5px 8px', color: 'var(--color-primary)', background: '#FFFFFF' }}
+                                  aria-label={`${t('addToCart')}: ${name}`}
+                                  style={{ width: '100%', justifyContent: 'center', border: '1px solid var(--color-primary)', borderRadius: 999, padding: '5px 8px', color: 'var(--color-primary)', background: '#FFFFFF' }}
                                 >
                                   <Plus size={13} />
                                 </button>
                               ) : (
-                                <div className="product-counter-bar" style={{ width: 94, padding: '4px 8px' }}>
+                                <div className="product-counter-bar" style={{ width: '100%', padding: '4px 8px' }}>
                                   <button className="counter-action-btn" onClick={() => handleUpdateQty(item.itemId, -1)} aria-label="−">
                                     <Minus size={13} />
                                   </button>

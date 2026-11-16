@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 130" role="img" aria-label="Wasabi">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="40%" r="75%">
+      <stop offset="0" stop-color="#F4F1EA"/>
+      <stop offset="1" stop-color="#E3DDD0"/>
+    </radialGradient>
+    <radialGradient id="dish" cx="45%" cy="40%" r="70%">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#E7E9EC"/>
+    </radialGradient>
+    <radialGradient id="wasabi" cx="40%" cy="30%" r="80%">
+      <stop offset="0" stop-color="#B9D96A"/>
+      <stop offset="0.55" stop-color="#8DB83A"/>
+      <stop offset="1" stop-color="#5E8A22"/>
+    </radialGradient>
+  </defs>
+  <rect width="200" height="130" fill="url(#bg)"/>
+  <!-- shadow and small dish -->
+  <ellipse cx="102" cy="98" rx="70" ry="16" fill="#000" opacity="0.10"/>
+  <ellipse cx="100" cy="88" rx="68" ry="22" fill="url(#dish)" stroke="#D3D7DC" stroke-width="1.5"/>
+  <ellipse cx="100" cy="86" rx="52" ry="14" fill="#F3F4F6"/>
+  <!-- wasabi mound, piped swirl -->
+  <path d="M62 86 C62 70 78 58 100 56 C122 58 138 70 138 86 Z" fill="url(#wasabi)"/>
+  <path d="M74 80 C82 70 118 70 126 80" fill="none" stroke="#6E9A2B" stroke-width="3" stroke-linecap="round" opacity="0.55"/>
+  <path d="M82 70 C90 63 110 63 118 70" fill="none" stroke="#6E9A2B" stroke-width="3" stroke-linecap="round" opacity="0.5"/>
+  <path d="M92 60 C96 50 106 50 108 58" fill="url(#wasabi)" stroke="#6E9A2B" stroke-width="2" stroke-linecap="round"/>
+  <!-- highlights -->
+  <ellipse cx="84" cy="70" rx="8" ry="4" fill="#E4F2B8" opacity="0.6" transform="rotate(-20 84 70)"/>
+  <circle cx="98" cy="56" r="2.5" fill="#E4F2B8" opacity="0.7"/>
+</svg>
