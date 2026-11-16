@@ -196,11 +196,15 @@ export async function getPosOrderStatus(siteOrderId: string): Promise<PosStatus 
 }
 
 /**
- * Site status for a POS status. For pickup "ready" is "ready for pickup" (shown by the site's
- * in_delivery step); for delivery the courier departure is still set from the admin panel.
+ * Site status for a POS status. The restaurant starts cooking as soon as it confirms the order
+ * (no kitchen screen), so a confirmed "accepted" is already "preparing"; unconfirmed stays "new".
+ * For pickup "ready" is "ready for pickup" (the site's in_delivery step); for delivery the courier
+ * departure is still set from the admin panel.
  */
 export function siteStatusFromPos(pos: PosStatus, deliveryType: Order['deliveryType']): Order['status'] {
   switch (pos.status) {
+    case 'accepted':
+      return pos.confirmed ? 'preparing' : 'new';
     case 'preparing':
       return 'preparing';
     case 'ready':
