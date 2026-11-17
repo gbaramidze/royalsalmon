@@ -13,8 +13,18 @@ export const DELIVERY_FEE = 5;
 /** Delivery is free from this subtotal (GEL) */
 export const FREE_DELIVERY_FROM = 120;
 
-/** One free roll from this subtotal (GEL); the restaurant picks which roll */
+/** One free roll from this subtotal (GEL); the restaurant picks which roll. Sets don't count toward it. */
 export const GIFT_ROLL_FROM = 100;
+
+/** The "Sets" menu category (matched by its slug/name, in any language) */
+export function isSetCategory(categorySlug: string): boolean {
+  return /^sets?$|сет|სეტ/i.test(categorySlug.trim());
+}
+
+/** Fallback when the item's category is unknown: set dishes are named "... Set" */
+export function isSetName(name: string): boolean {
+  return /\bsets?\b|сет|სეტ/i.test(name);
+}
 
 /** Birthday discount: percent off, given by staff on pickup against an ID */
 export const BIRTHDAY_DISCOUNT_PERCENT = 10;

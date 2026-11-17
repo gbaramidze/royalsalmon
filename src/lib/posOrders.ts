@@ -1,6 +1,6 @@
 import { Order } from '@/types';
 import { fetchLiveMenu } from '@/lib/api';
-import { GIFT_ROLL_FROM, getDeliveryFee } from '@/lib/promos';
+import { GIFT_ROLL_FROM, getDeliveryFee, isSetCategory, isSetName } from '@/lib/promos';
 
 /**
  * RestIQ Online Orders API: sends site orders to the restaurant's POS terminals.
@@ -12,7 +12,7 @@ const RESTIQ_API_KEY = process.env.RESTIQ_API_KEY || '';
 const round2 = (value: number) => Math.round(value * 100) / 100;
 
 /** Line added to the order when it qualifies for the gift roll (the restaurant picks the roll) */
-export const GIFT_NOTE = `🎁 Подарок: 1 ролл на выбор ресторана (заказ от ${GIFT_ROLL_FROM} GEL)`;
+export const GIFT_NOTE = `🎁 Подарок: 1 ролл на выбор ресторана (заказ от ${GIFT_ROLL_FROM} GEL без учёта сетов)`;
 
 export class OrderValidationError extends Error {}
 
@@ -24,9 +24,11 @@ export class OrderValidationError extends Error {}
 export async function normalizeOrder(order: Order): Promise<Order> {
   const categories = await fetchLiveMenu();
   const menuPrices = new Map<string, number>();
+  const setItemIds = new Set<string>();
   for (const category of categories) {
     for (const item of category.items) {
       menuPrices.set(item.itemId, item.itemSizes[0]?.prices[0]?.price ?? 0);
+      if (isSetCategory(category.slug) || isSetCategory(category.name.en)) setItemIds.add(item.itemId);
     }
   }
   if (menuPrices.size === 0) {
@@ -46,6 +48,10 @@ export async function normalizeOrder(order: Order): Promise<Order> {
 
   const subtotal = round2(items.reduce((sum, item) => sum + item.price * item.quantity, 0));
   const deliveryFee = getDeliveryFee(order.deliveryType, subtotal);
+  // Sets don't count toward the gift roll (by menu category; by name if the menu is unreachable)
+  const giftSubtotal = round2(items
+    .filter(item => (menuPrices.size > 0 ? !setItemIds.has(item.itemId) : !isSetName(item.name)))
+    .reduce((sum, item) => sum + item.price * item.quantity, 0));
   const customerNotes = (order.notes || '').trim();
 
   return {
@@ -56,7 +62,7 @@ export async function normalizeOrder(order: Order): Promise<Order> {
     tax: Number((subtotal * 0.18).toFixed(1)),
     total: round2(subtotal + deliveryFee),
     paymentStatus: 'pending',
-    notes: [customerNotes, subtotal >= GIFT_ROLL_FROM ? GIFT_NOTE : ''].filter(Boolean).join('\n') || undefined,
+    notes: [customerNotes, giftSubtotal >= GIFT_ROLL_FROM ? GIFT_NOTE : ''].filter(Boolean).join('\n') || undefined,
   };
 }
 

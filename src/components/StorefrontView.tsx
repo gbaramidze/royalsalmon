@@ -40,6 +40,7 @@ import {
   CARD_PAYMENT_ENABLED,
   getDeliveryFee,
   isExtrasCategory,
+  isSetCategory,
 } from '@/lib/promos';
 import { RoyalSalmonLogo } from '@/components/RoyalSalmonLogo';
 import { PaymentBadges, VisaLogo, MastercardLogo } from '@/components/PaymentLogos';
@@ -579,8 +580,11 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
   const subtotal = Math.round(cartEntries.reduce((acc, c) => acc + c.quantity * c.item.itemSizes[0].prices[0].price, 0) * 100) / 100;
   const deliveryFee = getDeliveryFee(deliveryMode, subtotal);
   const total = Math.round((subtotal + deliveryFee) * 100) / 100;
-  // Gift roll from GIFT_ROLL_FROM GEL: the restaurant picks which roll
-  const isGiftEligible = subtotal >= GIFT_ROLL_FROM;
+  // Gift roll from GIFT_ROLL_FROM GEL (sets don't count): the restaurant picks which roll
+  const giftSubtotal = Math.round(cartEntries
+    .filter(c => !isSetCategory(c.item.categorySlug))
+    .reduce((acc, c) => acc + c.quantity * c.item.itemSizes[0].prices[0].price, 0) * 100) / 100;
+  const isGiftEligible = giftSubtotal >= GIFT_ROLL_FROM;
 
   const handleOpenProduct = (item: MenuItem) => {
     setSelectedProduct(item);
@@ -1603,7 +1607,7 @@ export default function StorefrontView({ initialCategories }: StorefrontViewProp
                     <span>
                       {isGiftEligible
                         ? t('giftIncluded')
-                        : t('giftAddMore', { sum: Math.ceil((GIFT_ROLL_FROM - subtotal) * 100) / 100, from: GIFT_ROLL_FROM })}
+                        : t('giftAddMore', { sum: Math.ceil((GIFT_ROLL_FROM - giftSubtotal) * 100) / 100, from: GIFT_ROLL_FROM })}
                     </span>
                   </div>
 
