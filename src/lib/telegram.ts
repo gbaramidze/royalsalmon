@@ -1,5 +1,6 @@
 import { check, getSupabase } from '@/lib/supabase';
 import { normalizePhone } from '@/lib/orders';
+import { formatGeorgianPhone, sendSms } from '@/lib/sms';
 
 export const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
 export const TELEGRAM_BOT_USERNAME = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'royalsalmon_bot';
@@ -10,6 +11,9 @@ export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://royalsalmo
 
 const OTP_TTL_MS = 10 * 60 * 1000;
 const MAX_OTP_ATTEMPTS = 5;
+const SMS_RESEND_COOLDOWN_MS = 60 * 1000;
+// The code is shown on the page only outside production, so it never bypasses the real check
+const exposeCode = process.env.NODE_ENV !== 'production';
 const LAST_UPDATE_ID_KEY = 'telegram_last_update_id';
 
 interface OtpSession {
@@ -277,12 +281,25 @@ export async function requestOtp(rawPhone: string, method: 'telegram' | 'sms' = 
     );
 
   if (method === 'sms') {
+    if (!formatGeorgianPhone(phone)) {
+      throw new Error('СМС отправляется только на грузинские номера (+995 5XX XXX XXX)');
+    }
+    // Paid channel: one SMS per number per minute
+    const previous = await getOtpSession(phone);
+    if (previous && !previous.verified && ageMs(previous.created_at) < SMS_RESEND_COOLDOWN_MS) {
+      throw new Error('Код уже отправлен. Повторный запрос возможен через минуту.');
+    }
+
+    const sms = await sendSms(phone, `Royal Salmon: код подтверждения ${code}`);
+    if (!sms.success) {
+      throw new Error('Не удалось отправить СМС. Попробуйте ещё раз или выберите Telegram.');
+    }
     await saveSession(null);
 
     return {
       success: true,
       phone,
-      code, // returned for SMS confirmation and demo hint
+      ...(exposeCode ? { code } : {}),
       method: 'sms',
       message: `Код подтверждения отправлен по СМС на номер ${phone}`
     };
@@ -310,7 +327,7 @@ export async function requestOtp(rawPhone: string, method: 'telegram' | 'sms' = 
   return {
     success: true,
     phone,
-    code, // returned so client/demo can display hint if needed
+    ...(exposeCode ? { code } : {}), // dev hint only
     sentDirectly,
     method: 'telegram',
     botUsername: TELEGRAM_BOT_USERNAME,

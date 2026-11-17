@@ -5,6 +5,7 @@ import { DELIVERY_ENABLED } from '@/lib/promos';
 import { normalizeOrder, OrderValidationError, sendOrderToPos } from '@/lib/posOrders';
 import { Order } from '@/types';
 import { getWebAppUser } from '@/lib/telegramWebApp';
+import { sendOrderSms } from '@/lib/orderSms';
 
 export const dynamic = 'force-dynamic';
 
@@ -81,7 +82,10 @@ export async function POST(req: Request) {
       console.error('Failed to send Telegram order notification:', error);
     }
 
-    return NextResponse.json({ success: true, order, pos, saved, staffNotified, telegram });
+    // 5. Customer confirmation by SMS (best effort, Georgian numbers only)
+    const sms = await sendOrderSms('placed', order);
+
+    return NextResponse.json({ success: true, order, pos, saved, staffNotified, telegram, sms });
   } catch (error) {
     if (error instanceof OrderValidationError) {
       return NextResponse.json({ success: false, error: error.message }, { status: 400 });

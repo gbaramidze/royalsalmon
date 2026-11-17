@@ -3,6 +3,7 @@ import { Order, OrderStatus } from '@/types';
 import { DEFAULT_DELIVERY_MINUTES, isCourierFresh, LatLng, RESTAURANT_COORDS, travelMinutes } from '@/lib/geo';
 import { getRoadRoute, RoadRoute } from '@/lib/routing';
 import { check, COMPLAINT_PHOTOS_BUCKET, getSupabase } from '@/lib/supabase';
+import { OrderSmsEvent, sendOrderSms } from '@/lib/orderSms';
 
 export const ORDER_STATUSES: OrderStatus[] = ['new', 'preparing', 'in_delivery', 'completed', 'cancelled'];
 
@@ -253,11 +254,17 @@ export async function updateOrderStatus(id: string, status: OrderStatus, roadMin
   const db = getSupabase();
   const now = new Date().toISOString();
 
+  const before = check(await db.from('orders').select('status').eq('id', id).maybeSingle(), 'load order status') as
+    | { status: OrderStatus }
+    | null;
   const updated = check(
     await db.from('orders').update({ status, status_updated_at: now }).eq('id', id).select('id, lat, lng'),
     'update order status'
   ) ?? [];
   if (!updated.length) return null;
+
+  // Customer SMS, once per event: the courier leaves (or pickup is ready) only once, cancel only on the change
+  let smsEvent: OrderSmsEvent | null = status === 'cancelled' && before?.status !== 'cancelled' ? 'cancelled' : null;
 
   if (status === 'in_delivery') {
     const { lat, lng } = updated[0] as { lat: number | null; lng: number | null };
@@ -267,17 +274,21 @@ export async function updateOrderStatus(id: string, status: OrderStatus, roadMin
         : DEFAULT_DELIVERY_MINUTES;
 
     // Only the first departure counts: a repeated "in delivery" keeps the original clock
-    check(
+    const started = check(
       await db
         .from('orders')
         .update({ delivery_started_at: now, eta_minutes: etaMinutes })
         .eq('id', id)
-        .is('delivery_started_at', null),
+        .is('delivery_started_at', null)
+        .select('id'),
       'start delivery'
-    );
+    ) ?? [];
+    if (started.length) smsEvent = 'on_the_way';
   }
 
-  return getOrder(id);
+  const order = await getOrder(id);
+  if (order && smsEvent) await sendOrderSms(smsEvent, order);
+  return order;
 }
 
 export async function updateCourierLocation(id: string, location: LatLng): Promise<StoredOrder | null> {
